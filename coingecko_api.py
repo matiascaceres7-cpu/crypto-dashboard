@@ -119,3 +119,115 @@ def obtener_noticias_mercado():
     except Exception as e:
         print(f"Excepción en el módulo de prensa: {e}")
         return []
+
+
+# PESTAÑA D: SIMULADOR DE PORTAFOLIO CORPORATIVO
+        with tab_simulador:
+            st.subheader("Simulador de Inversiones y Retorno de Inversión (ROI)")
+            st.markdown("Módulo operativo para la gestión de activos y diversificación patrimonial en tiempo real.")
+            st.write("---")
+            
+            # Mapeos de diccionarios analíticos para consultas rápidas
+            precios_dict = dict(zip(df['name'], df['current_price']))
+            simbolos_dict = dict(zip(df['name'], df['symbol']))
+            
+            # 1. INTERFAZ DE TRANSACCIONES (Órdenes de Compra/Venta)
+            st.markdown("#### Terminal de Negociación (Órdenes de Mercado)")
+            col_tx1, col_tx2, col_tx3 = st.columns(3)
+            
+            with col_tx1:
+                crypto_tx = st.selectbox("Seleccione Activo Objeto de Transacción:", df['name'].tolist(), key="sb_crypto_tx")
+            with col_tx2:
+                accion_tx = st.selectbox("Tipo de Operación Financiera:", ["Comprar", "Vender"], key="sb_accion_tx")
+            with col_tx3:
+                cantidad_tx = st.number_input("Cantidad de Unidades de Activo:", min_value=0.0, step=0.01, key="num_cant_tx")
+                
+            if st.button("Ejecutar Transacción en Portafolio", use_container_width=True):
+                precio_unitario = precios_dict[crypto_tx]
+                costo_total = precio_unitario * cantidad_tx
+                
+                if accion_tx == "Comprar":
+                    if costo_total > st.session_state["saldo_cash"]:
+                        st.error("Transacción Rechazada: Fondos de Efectivo (Cash) Insuficientes.")
+                    elif cantidad_tx <= 0:
+                        st.error("Error: La cantidad transaccionada debe ser estrictamente mayor a cero.")
+                    else:
+                        st.session_state["saldo_cash"] -= costo_total
+                        st.session_state["billetera"][crypto_tx] = st.session_state["billetera"].get(crypto_tx, 0.0) + cantidad_tx
+                        st.success(f"Orden Ejecutada: Compra de {cantidad_tx} {simbolos_dict[crypto_tx].upper()} por un valor de ${costo_total:,.2f} USD.")
+                        st.rerun()
+                        
+                elif accion_tx == "Vender":
+                    cantidad_poseida = st.session_state["billetera"].get(crypto_tx, 0.0)
+                    if cantidad_tx > cantidad_poseida:
+                        st.error("Transacción Rechazada: Cantidad de activos en cartera insuficiente para cubrir la orden.")
+                    elif cantidad_tx <= 0:
+                        st.error("Error: La cantidad transaccionada debe ser estrictamente mayor a cero.")
+                    else:
+                        st.session_state["saldo_cash"] += costo_total
+                        st.session_state["billetera"][crypto_tx] = cantidad_poseida - cantidad_tx
+                        if st.session_state["billetera"][crypto_tx] <= 0:
+                            del st.session_state["billetera"][crypto_tx]
+                        st.success(f"Orden Ejecutada: Venta de {cantidad_tx} {simbolos_dict[crypto_tx].upper()} por un valor de ${costo_total:,.2f} USD.")
+                        st.rerun()
+
+            # 2. VALORACIÓN COMPLEMENTARIA DE LA CARTERA
+            valor_criptos_total = 0.0
+            filas_portafolio = []
+            
+            for crypto, cant in st.session_state["billetera"].items():
+                if cant > 0:
+                    p_actual = precios_dict.get(crypto, 0.0)
+                    v_posicion = cant * p_actual
+                    valor_criptos_total += v_posicion
+                    filas_portafolio.append({
+                        "Activo": crypto,
+                        "Unidades": cant,
+                        "Precio de Mercado (USD)": f"${p_actual:,.2f}",
+                        "Valorización (USD)": v_posicion
+                    })
+                    
+            patrimonio_neto_total = st.session_state["saldo_cash"] + valor_criptos_total
+            roi_acumulado = ((patrimonio_neto_total - 100000.0) / 100000.0) * 100
+            
+            # Despliegue de Indicadores de Control Patrimonial (KPIs Financieros)
+            st.write("---")
+            st.markdown("#### Estado de Situación Patrimonial")
+            col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
+            
+            with col_kpi1:
+                st.metric(label="Capital Disponible (Efectivo)", value=f"${st.session_state['saldo_cash']:,.2f} USD")
+            with col_kpi2:
+                st.metric(label="Valorización Total de Criptoactivos", value=f"${valor_criptos_total:,.2f} USD")
+            with col_kpi3:
+                st.metric(label="Patrimonio Neto Total", value=f"${patrimonio_neto_total:,.2f} USD", delta=f"{roi_acumulado:.2f}% ROI")
+                
+            # 3. VISUALIZACIÓN MATRICIAL Y GRÁFICA DE RIESGO
+            if filas_portafolio:
+                df_port = pd.DataFrame(filas_portafolio)
+                col_tab, col_pie = st.columns([0.55, 0.45])
+                
+                with col_tab:
+                    st.markdown("##### Desglose de Posiciones de Inversión Abiertas")
+                    # Formatear la visualización del valor en la tabla
+                    df_mostrar = df_port.copy()
+                    df_mostrar["Valorización (USD)"] = df_mostrar["Valorización (USD)"].map(lambda x: f"${x:,.2f}")
+                    st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
+                    
+                with col_pie:
+                    st.markdown("##### Matriz Distribución de Activos (Exposición al Riesgo)")
+                    # Incorporación del Efectivo para cuadrar la torta total del capital
+                    fila_cash = pd.DataFrame([{"Activo": "Efectivo (Cash)", "Unidades": 1.0, "Precio de Mercado (USD)": "N/A", "Valorización (USD)": st.session_state["saldo_cash"]}])
+                    df_pie = pd.concat([df_port, fila_cash], ignore_index=True)
+                    
+                    fig_pie = px.pie(
+                        df_pie, 
+                        values='Valorización (USD)', 
+                        names='Activo', 
+                        template="plotly_dark",
+                        color_discrete_sequence=px.colors.sequential.YlGnBu_r
+                    )
+                    fig_pie.update_layout(margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor='rgba(0,0,0,0)')
+                    st.plotly_chart(fig_pie, use_container_width=True)
+            else:
+                st.info("La cartera de inversión se encuentra actualmente vacía. Utilice el panel superior para generar órdenes de compra.")
