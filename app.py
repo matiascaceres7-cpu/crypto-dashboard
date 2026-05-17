@@ -330,37 +330,35 @@ if df is not None and not df.empty:
     
 
     # --- PANEL DERECHO: CONTEXTO CUALITATIVO CONTINUO ---
+    # --- PANEL DERECHO: CONTEXTO CUALITATIVO CONTINUO (CON LÍMITES ESTRICTOS) ---
     with col_prensa:
         st.subheader("Prensa y Tendencias Globales")
-        st.markdown("""
-        Variables cualitativas en tiempo real para contextualizar la volatilidad algorítmica y mitigar riesgos.
-        """)
+        st.markdown("Variables cualitativas en tiempo real para mitigar riesgos operacionales.")
         st.write("---")
         
-    if lista_noticias:
-        for noticia in lista_noticias[:5]:
-            titulo = noticia.get('title', 'Publicación sin título')
-            fuente = noticia.get('source_info', {}).get('name', 'Agencia Externa')
-            url_enlace = noticia.get('url', '#')
-            imagen_url = noticia.get('imageurl', '')  # <-- Capturamos la URL de la imagen nativa
+        if lista_noticias:
+            for noticia in lista_noticias[:5]:
+                titulo = noticia.get('title', 'Publicación sin título')
+                fuente = noticia.get('source_info', {}).get('name', 'Agencia Externa')
+                url_enlace = noticia.get('url', '#')
+                imagen_url = noticia.get('imageurl', '')
                 
-            with st.container():
-                    # Renderizado condicional con control de ancho ESTRICTO y altura máxima
-                if imagen_url:
-                        # 1. Usamos st.markdown con HTML/CSS para forzar el comportamiento del contenedor
-                    st.markdown(
-                        f"""
-                        <div style="width: 100%; max-height: 150px; overflow: hidden; border-radius: 5px; margin-bottom: 5px;">
-                            <img src="{imagen_url}" style="width: 100%; height: auto; object-fit: cover;">
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                with st.container():
+                    if imagen_url:
+                        # Forzado absoluto en píxeles para evitar el desborde en el navegador
+                        st.markdown(
+                            f"""
+                            <div style="width: 100%; max-width: 280px; max-height: 140px; overflow: hidden; border-radius: 6px; margin: 0 auto 8px auto;">
+                                <img src="{imagen_url}" style="width: 100%; height: 140px; object-fit: cover;">
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
                     
-                st.markdown(f"**[{titulo}]({url_enlace})**")
-                st.caption(f"Fuente: {fuente} | Idioma: Inglés")
-                st.write("---")
-    else:
-        st.error("Servicio de distribución de prensa no disponible en este momento.")
+                    st.markdown(f"**[{titulo}]({url_enlace})**")
+                    st.caption(f"Fuente: {fuente} | Idioma: Inglés")
+                    st.write("---")
+        else:
+            st.error("Servicio de distribución de prensa no disponible en este momento.")
 else:
     st.error("Error crítico: No fue posible establecer comunicación estable con los endpoints de CoinGecko.")
