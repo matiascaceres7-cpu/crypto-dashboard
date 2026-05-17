@@ -119,7 +119,9 @@ def obtener_noticias_mercado():
     except Exception as e:
         print(f"Excepción en el módulo de prensa: {e}")
         return []
-with tab_simulador:
+
+# PESTAÑA D: SIMULADOR DE PORTAFOLIO CORPORATIVO
+        with tab_simulador:
             st.subheader("Simulador de Inversiones y Retorno de Inversión (ROI)")
             st.markdown("Módulo operativo para la gestión de activos y diversificación patrimonial en tiempo real.")
             st.write("---")
@@ -228,4 +230,3 @@ with tab_simulador:
                     st.plotly_chart(fig_pie, use_container_width=True)
             else:
                 st.info("La cartera de inversión se encuentra actualmente vacía. Utilice el panel superior para generar órdenes de compra.")
-
