@@ -345,9 +345,17 @@ if df is not None and not df.empty:
             imagen_url = noticia.get('imageurl', '')  # <-- Capturamos la URL de la imagen nativa
                 
             with st.container():
-                # Renderizado condicional de la imagen para evitar recuadros vacíos
-                if imagen_url:
-                    st.image(imagen_url, use_container_width=True)
+                    # Renderizado condicional con control de ancho ESTRICTO y altura máxima
+                    if imagen_url:
+                        # 1. Usamos st.markdown con HTML/CSS para forzar el comportamiento del contenedor
+                        st.markdown(
+                            f"""
+                            <div style="width: 100%; max-height: 150px; overflow: hidden; border-radius: 5px; margin-bottom: 5px;">
+                                <img src="{imagen_url}" style="width: 100%; height: auto; object-fit: cover;">
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
                     
                 st.markdown(f"**[{titulo}]({url_enlace})**")
                 st.caption(f"Fuente: {fuente} | Idioma: Inglés")
