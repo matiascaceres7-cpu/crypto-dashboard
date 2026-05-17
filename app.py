@@ -32,7 +32,7 @@ with st.sidebar:
     st.markdown("### Escuela de Informática y Gestión")
     st.markdown("""
     Facultad de Ingeniería y Ciencias  
-    Plataforma de Optimización Tecnológica
+    Ingenieria Informatica y Gestion
     """)
     
     st.write("---")
