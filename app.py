@@ -2,18 +2,19 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 from google import genai
 
 # Carga global de variables de entorno
 load_dotenv()
 
-# Inicialización absoluta del cliente de IA para evitar errores de definición (NameError)
+# Inicialización absoluta del cliente de IA para evitar errores de definición
 api_key_gemini = st.secrets["GEMINI_API_KEY"] if "GEMINI_API_KEY" in st.secrets else os.getenv("GEMINI_API_KEY")
 ai_client = genai.Client(api_key=api_key_gemini)
 
-# Reemplazar la importación previa asi agregar nueva caracteristica del backend
-from coingecko_api import obtener_top_criptos, obtener_historico_activo
+# CORRECCIÓN: Se añade 'obtener_noticias_mercado' a las funciones importadas del backend
+from coingecko_api import obtener_top_criptos, obtener_historico_activo, obtener_noticias_mercado
 
 # Configuración de la interfaz con enfoque analítico
 st.set_page_config(
@@ -27,22 +28,21 @@ if "reporte_institucional" not in st.session_state:
 
 # --- PANEL LATERAL: IDENTIFICACIÓN INSTITUCIONAL ---
 with st.sidebar:
-    # Carga del logo local para garantizar disponibilidad permanente
     try:
         st.image("logo_udp.png", use_container_width=True)
     except Exception:
-        # Alternativa de texto estructurado si el archivo local aún no se ha subido
         st.markdown("### Universidad Diego Portales")
     
     st.markdown("### Escuela de Informática y Gestión")
     st.markdown("""
     Facultad de Ingeniería y Ciencias  
-    Ingenieria Informatica y Gestion
+    Ingeniería Informática y Gestión
     """)
     
     st.write("---")
     if st.button("Sincronizar Datos de Mercado", use_container_width=True):
         st.rerun()
+
 # --- CABECERA PRINCIPAL ---
 st.title("Sistema de Monitoreo y Análisis de Activos Digitales")
 st.markdown("""
@@ -92,9 +92,7 @@ if df is not None and not df.empty:
         with tab_datos:
             st.subheader("Reporte de Capitalización de Mercado")
             df_final = df.copy()
-            # Mapeo síncrono de los 7 elementos provenientes del backend enriquecido
             df_final.columns = ['ID', 'Activo', 'Ticker', 'Precio Actual', 'Market Cap', 'Variación 24h', 'Imagen']
-            # Ocultamiento de IDs informáticos para resguardar la estética corporativa
             st.dataframe(df_final.drop(columns=['ID', 'Imagen']), use_container_width=True, height=450)
 
         # PESTAÑA B: MODELADO GRÁFICO AVANZADO
@@ -102,14 +100,12 @@ if df is not None and not df.empty:
             st.subheader("Análisis Comparativo y Distribución de Mercado")
             st.markdown("Evaluación de anomalías estadísticas y rendimientos extremos de los activos bajo observación.")
             
-            # Selector de criterio operativo
             criterio_busqueda = st.radio(
                 "Seleccione el segmento de volatilidad a evaluar:",
                 ["Top 15 Activos con Mayor Crecimiento", "Top 15 Activos con Mayor Contracción"],
                 horizontal=True
             )
             
-            # Ordenamiento matricial indexado mediante Pandas
             if "Mayor Crecimiento" in criterio_busqueda:
                 df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=False).head(15)
                 color_escala = 'greens' 
@@ -187,7 +183,6 @@ if df is not None and not df.empty:
             if st.button("Generar Informe de Auditoría Financiera", use_container_width=True):
                 fecha_servidor = datetime.now().strftime("%d/%m/%Y a las %H:%M:%S")
                 
-                # Pre-cálculo estadístico mediante Pandas para mitigar alucinaciones numéricas de la IA
                 activo_top_ganador = df.loc[df['price_change_percentage_24h'].idxmax()]
                 activo_top_perdedor = df.loc[df['price_change_percentage_24h'].idxmin()]
                 promedio_variacion_mercado = df['price_change_percentage_24h'].mean()
@@ -209,7 +204,7 @@ if df is not None and not df.empty:
                     try:
                         from google.genai import types
                         configuracion_ia = types.GenerateContentConfig(
-                            system_instruction="Actúa como un Analista Financiero Senior virtual, ya que estas creado por estudiantes de informatica de la Universidad Diego Portales. Emite informes de auditoría ejecutiva bajo un carácter estrictamente formal, corporativo y técnico, basándote de forma exclusiva en la analítica de datos provista."
+                            system_instruction="Actúa como un Analista Financiero Senior virtual, desarrollado para la Escuela de Informática y Gestión de la Universidad Diego Portales. Emite informes de auditoría ejecutiva bajo un carácter estrictamente formal, corporativo y técnico, basándote de forma exclusiva en la analítica de datos provista."
                         )
                         response = ai_client.models.generate_content(
                             model='gemini-2.5-flash', 
@@ -221,7 +216,6 @@ if df is not None and not df.empty:
                     except Exception as e:
                         st.error(f"Error de comunicación en la API de Inteligencia Artificial: {e}")
             
-            # Renderizado de persistencia de datos (Evita que el informe se borre al cambiar de pestaña)
             if st.session_state["reporte_institucional"]:
                 st.write("---")
                 st.markdown("### Reporte Ejecutivo de Gestión Institucional")
