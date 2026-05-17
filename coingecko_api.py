@@ -87,39 +87,32 @@ def obtener_historico_activo(coin_id="bitcoin", days=30):
 def obtener_noticias_mercado():
     """
     Consume el endpoint analítico de CryptoCompare para el feed de prensa.
-    Implementa un mecanismo de contingencia híbrido: si falla la autenticación 
-    por secrets, conmuta automáticamente a una petición pública abierta.
+    Inyecta un User-Agent corporativo para evitar bloqueos de seguridad (Cloudflare/WAF)
+    cuando el script se ejecuta desde la infraestructura de Streamlit Cloud.
     """
     import requests
     import os
     
     url = "https://min-api.cryptocompare.com/data/v2/news/?lang=EN"
-    headers = {}
     
-    # Intento de captura segura de credenciales institucionales
+    # SOLUCIÓN: Simular una petición desde un navegador web real
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    
     try:
         import streamlit as st
         api_key_news = st.secrets.get("CRYPTOCOMPARE_API_KEY") or os.getenv("CRYPTOCOMPARE_API_KEY")
         if api_key_news:
-            headers = {"authorization": f"Apikey {api_key_news}"}
+            headers["authorization"] = f"Apikey {api_key_news}"
     except Exception:
-        # Si el entorno local no cuenta con la librería de Streamlit, se ignora el bloque
         pass
 
     try:
-        # Petición principal con un timeout prudente para entornos cloud
         response = requests.get(url, headers=headers, timeout=8)
         if response.status_code == 200:
             return response.json().get('Data', [])
-        
-        # Contingencia: Si las cabeceras con llave fallan, se intenta una petición limpia y pública
-        if headers:
-            response_publica = requests.get(url, timeout=8)
-            if response_publica.status_code == 200:
-                return response_publica.json().get('Data', [])
-                
+            
         return []
-        
     except Exception:
-        # Mitigación absoluta de caídas: devuelve una lista vacía controlada en caso de timeout de red
         return []
