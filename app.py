@@ -12,7 +12,8 @@ load_dotenv()
 api_key_gemini = st.secrets["GEMINI_API_KEY"] if "GEMINI_API_KEY" in st.secrets else os.getenv("GEMINI_API_KEY")
 ai_client = genai.Client(api_key=api_key_gemini)
 
-from coingecko_api import obtener_top_criptos
+# Reemplazar la importación previa asi agregar nueva caracteristica del backend
+from coingecko_api import obtener_top_criptos, obtener_historico_activo
 
 # Configuración de la interfaz con enfoque analítico
 st.set_page_config(
