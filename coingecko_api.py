@@ -37,7 +37,8 @@ def obtener_top_criptos(vs_currency="usd", per_page=10):
             # Convertimos la respuesta JSON en un DataFrame de Pandas para manejarlo fácil
             df = pd.DataFrame(datos)
             # Nos quedamos solo con las columnas que nos interesan para la web
-            columnas_interesantes = ['name', 'symbol', 'current_price', 'market_cap', 'price_change_percentage_24h', 'image']
+           # Se agrega 'id' para habilitar las consultas en las series de tiempo
+            columnas_interesantes = ['id', 'name', 'symbol', 'current_price', 'market_cap', 'price_change_percentage_24h', 'image']
             return df[columnas_interesantes]
         else:
             print(f"Error {response.status_code}: {response.text}")
