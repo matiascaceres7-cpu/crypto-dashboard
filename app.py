@@ -337,22 +337,22 @@ if df is not None and not df.empty:
         """)
         st.write("---")
         
-           if lista_noticias:
-                for noticia in lista_noticias[:5]:
-                    titulo = noticia.get('title', 'Publicación sin título')
-                    fuente = noticia.get('source_info', {}).get('name', 'Agencia Externa')
-                    url_enlace = noticia.get('url', '#')
-                    imagen_url = noticia.get('imageurl', '')  # <-- Capturamos la URL de la imagen nativa
+    if lista_noticias:
+        for noticia in lista_noticias[:5]:
+            titulo = noticia.get('title', 'Publicación sin título')
+            fuente = noticia.get('source_info', {}).get('name', 'Agencia Externa')
+            url_enlace = noticia.get('url', '#')
+            imagen_url = noticia.get('imageurl', '')  # <-- Capturamos la URL de la imagen nativa
                 
-                    with st.container():
-                        # Renderizado condicional de la imagen para evitar recuadros vacíos
-                        if imagen_url:
-                            st.image(imagen_url, use_container_width=True)
+            with st.container():
+                # Renderizado condicional de la imagen para evitar recuadros vacíos
+                if imagen_url:
+                    st.image(imagen_url, use_container_width=True)
                     
-                        st.markdown(f"**[{titulo}]({url_enlace})**")
-                        st.caption(f"Fuente: {fuente} | Idioma: Inglés")
-                        st.write("---")
-            else:
-                st.error("Servicio de distribución de prensa no disponible en este momento.")
+                st.markdown(f"**[{titulo}]({url_enlace})**")
+                st.caption(f"Fuente: {fuente} | Idioma: Inglés")
+                st.write("---")
+    else:
+        st.error("Servicio de distribución de prensa no disponible en este momento.")
 else:
     st.error("Error crítico: No fue posible establecer comunicación estable con los endpoints de CoinGecko.")
