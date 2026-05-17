@@ -1,6 +1,6 @@
 [theme]
-primaryColor = "#FF6B00"          # Naranjo brillante para botones, pestañas y KPIs activos
-backgroundColor = "#0E1117"       # Gris oscuro azulado (Estándar de la industria para tableros de datos)
-secondaryBackgroundColor = "#1F2937" # Gris más claro para resaltar la barra lateral y los encabezados de tablas
-textColor = "#FFFFFF"             # Blanco puro para textos principales
+primaryColor = "#FF6B00"          # Naranjo corporativo
+backgroundColor = "#0E1117"       # Gris oscuro analítico para el panel principal
+secondaryBackgroundColor = "#FFFFFF" # Fondo blanco para la barra lateral (donde está el logo)
+textColor = "#FFFFFF"             # Texto blanco por defecto para el panel principal
 font = "sans serif"
