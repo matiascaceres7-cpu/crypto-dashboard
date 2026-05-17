@@ -17,6 +17,7 @@ ai_client = genai.Client(api_key=api_key_gemini)
 from coingecko_api import obtener_top_criptos, obtener_historico_activo, obtener_noticias_mercado
 
 # --- CONTROL DE CONTRASTE, ANCHO E INPUTS DE LA INTERFAZ ---
+# --- CONTROL DE CONTRASTE, ANCHO E INPUTS DE LA INTERFAZ ---
 st.markdown(
     """
     <style>
@@ -45,23 +46,30 @@ st.markdown(
         padding-right: 3rem !important;
     }
 
-    /* SOLUCIÓN AL APARTADO BLANCO: Forzar fondo oscuro y texto claro en los inputs del simulador */
-    div[data-testid="stSelectbox"] div[data-baseweb="select"],
+    /* CORRECCIÓN ABSOLUTA: Forzar fondo oscuro en toda la subestructura de Selectbox y NumberInput */
+    div[data-testid="stSelectbox"] [data-baseweb="select"],
+    div[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+    div[data-testid="stNumberInput"] > div,
     div[data-testid="stNumberInput"] input {
         background-color: #1F2937 !important;
         color: #FFFFFF !important;
+        border: 1px solid #374151 !important;
     }
     
-    /* Garantizar que el texto dentro de los selectores renderice siempre en blanco */
-    div[data-baseweb="select"] span, 
-    div[data-baseweb="select"] div {
+    /* Forzar flechas de selección, iconos, textos internos y botones de incremento a blanco */
+    div[data-testid="stSelectbox"] svg,
+    div[data-testid="stSelectbox"] span,
+    div[data-testid="stSelectbox"] div,
+    div[data-testid="stNumberInput"] button,
+    div[data-testid="stNumberInput"] svg {
         color: #FFFFFF !important;
+        fill: #FFFFFF !important;
+        background-color: transparent !important;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
-
 # Inicialización del estado de la sesión para el almacenamiento del reporte de IA
 if "reporte_institucional" not in st.session_state:
     st.session_state["reporte_institucional"] = None
