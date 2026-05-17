@@ -111,6 +111,45 @@ if df is not None and not df.empty:
             plot_bgcolor='rgba(0,0,0,0)'
         )
         st.plotly_chart(fig, use_container_width=True)
+        # --- AMPLIACIÓN DE LA API: ANÁLISIS DE SERIES DE TIEMPO ---
+        st.write("---")
+        st.subheader("Análisis de Tendencia Histórica e Inteligencia de Negocios")
+        st.markdown("""
+        Seleccione un activo digital para proyectar la serie de tiempo correspondiente a los últimos 30 días. 
+        Este módulo mitiga el sesgo de la volatilidad diaria mediante la visualización de tendencias macro.
+        """)
+
+        # Generación de selectores mapeando el ID técnico de la API
+        diccionario_criptos = dict(zip(df['name'], df['id']))
+        nombre_seleccionado = st.selectbox("Activo objeto de estudio historico:", list(diccionario_criptos.keys()))
+        id_seleccionado = diccionario_criptos[nombre_seleccionado]
+
+        # Consulta al backend enriquecido
+        with st.spinner("Extrayendo series temporales desde el servidor..."):
+            df_historico = obtener_historico_activo(coin_id=id_seleccionado, days=30)
+
+        if df_historico is not None and not df_historico.empty:
+            # Construcción de gráfico de líneas con la paleta financiera oscura
+            fig_linea = px.line(
+                df_historico,
+                x='Fecha',
+                y='Precio',
+                labels={'Fecha': 'Línea Temporal', 'Precio': 'Valor de Cierre (USD)'},
+                title=f"Evolución de Cotización de {nombre_seleccionado} - Últimos 30 días",
+                template="plotly_dark"
+            )
+            
+            # Optimización estética del gráfico lineal corporativo
+            fig_linea.update_traces(line_color='#00FFCC', line_width=2)
+            fig_linea.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                hovermode="x unified"
+            )
+            
+            st.plotly_chart(fig_linea, use_container_width=True)
+        else:
+            st.error("No se pudo computar la serie temporal para el activo seleccionado.")
 
     # PESTAÑA 3: PROCESAMIENTO GENERATIVO DE AUDITORÍA
     with tab_ia:
