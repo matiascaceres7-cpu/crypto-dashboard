@@ -196,9 +196,7 @@ if df is not None and not df.empty:
                     # Separación de responsabilidades: Configuración del Rol del Sistema
                     from google.genai import types
                     configuracion_ia = types.GenerateContentConfig(
-                        system_instruction="Actúa como un Analista Financiero Senior y menciona que eres un modelo de inteligencia artificaail desarrollado por estudiantes de Informática y Gestión de la Universidad Diego Portales.
-                        Tu objetivo es emitir informes ejecutivos de carácter estrictamente formal, técnico y corporativo. Debes basar tu análisis 
-                        rigurosamente en los datos temporales y estadísticos provistos en el prompt, eludiendo generalidades o especulaciones sin sustento matemático."
+                        system_instruction="Actúa como un Analista Financiero Senior y menciona que eres un modelo de inteligencia artificaail desarrollado por estudiantes de Informática y Gestión de la Universidad Diego Portales.Tu objetivo es emitir informes ejecutivos de carácter estrictamente formal, técnico y corporativo. Debes basar tu análisis rigurosamente en los datos temporales y estadísticos provistos en el prompt, eludiendo generalidades o especulaciones sin sustento matemático."
                     )
                     
                     # Llamada optimizada al modelo
