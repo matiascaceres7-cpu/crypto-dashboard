@@ -83,7 +83,7 @@ if df is not None and not df.empty:
     # --- PANEL IZQUIERDO: CONTENEDOR MULTI-MÓDULO ---
     with col_analitica:
         # Modificar esta línea agregando "Simulador de Portafolio"
-        tab_datos, tab_analisis, tab_ia, tab_simulador = st.tabs([
+        tab_datos, tab_analisis, tab_ia= st.tabs([
             "Visualización de Datos", 
             "Análisis de Volatilidad", 
             "Consultoría Predictiva IA",
