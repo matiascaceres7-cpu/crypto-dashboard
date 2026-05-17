@@ -16,8 +16,7 @@ ai_client = genai.Client(api_key=api_key_gemini)
 #llamada del backend
 from coingecko_api import obtener_top_criptos, obtener_historico_activo, obtener_noticias_mercado
 
-# --- CONTROL DE CONTRASTE PARA LA BARRA LATERAL (GRIS CLARO) ---
-# --- CONTROL DE CONTRASTE Y ANCHO DE LA INTERFAZ ---
+# --- CONTROL DE CONTRASTE, ANCHO E INPUTS DE LA INTERFAZ ---
 st.markdown(
     """
     <style>
@@ -39,11 +38,24 @@ st.markdown(
         border-color: #D1D5DB !important;
     }
     
-    /* SOLUCIÓN: Romper el modo centrado y forzar el diseño ancho (Wide) */
+    /* Romper el modo centrado y forzar el diseño ancho (Wide) */
     [data-testid="stMainBlockContainer"], .block-container {
         max-width: 95% !important;
         padding-left: 3rem !important;
         padding-right: 3rem !important;
+    }
+
+    /* SOLUCIÓN AL APARTADO BLANCO: Forzar fondo oscuro y texto claro en los inputs del simulador */
+    div[data-testid="stSelectbox"] div[data-baseweb="select"],
+    div[data-testid="stNumberInput"] input {
+        background-color: #1F2937 !important;
+        color: #FFFFFF !important;
+    }
+    
+    /* Garantizar que el texto dentro de los selectores renderice siempre en blanco */
+    div[data-baseweb="select"] span, 
+    div[data-baseweb="select"] div {
+        color: #FFFFFF !important;
     }
     </style>
     """,
