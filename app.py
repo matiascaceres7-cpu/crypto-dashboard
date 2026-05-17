@@ -52,14 +52,34 @@ acoplando modelos de lenguaje de última generación para la auditoría de carte
 """)
 
 st.write("---")
+# --- OBTENCIÓN DE DATOS DESDE EL MÓDULO ANALÍTICO BACKEND ---
+with st.spinner("Estableciendo conexión con los servidores de datos..."):
+    df = obtener_top_criptos()
 
-# Obtención de datos desde el módulo analítico backend
-# --- OBTENCIÓN DE DATOS DE PRENSA (PREVIO AL RENDERIZADO) ---
-with st.spinner("Sincronizando flujo de prensa internacional..."):
+if df is not None and not df.empty:
+    
+    # --- INDICADORES FINANCIEROS CLAVE ---
+    col1, col2, col3 = st.columns(3)
+    
+    btc_data = df[df['symbol'].str.lower() == 'btc']
+    eth_data = df[df['symbol'].str.lower() == 'eth']
+    
+    with col1:
+        val_btc = btc_data['current_price'].values[0] if not btc_data.empty else 0
+        st.metric(label="Valor de Mercado Bitcoin (USD)", value=f"${val_btc:,.2f}")
+    with col2:
+        val_eth = eth_data['current_price'].values[0] if not eth_data.empty else 0
+        st.metric(label="Valor de Mercado Ethereum (USD)", value=f"${val_eth:,.2f}")
+    with col3:
+        st.metric(label="Activos Digitales bajo Análisis", value=len(df))
+
+    st.write("---")
+
+    # --- OBTENCIÓN DE DATOS DE PRENSA (PREVIO AL RENDERIZADO) ---
+    with st.spinner("Sincronizando flujo de prensa internacional..."):
         lista_noticias = obtener_noticias_mercado()
 
     # --- DISEÑO DE TERMINAL: DISTRIBUCIÓN DE COLUMNAS GLOBALES ---
-    # Se divide el espacio: 70% para analítica (pestañas) y 30% para el panel fijo de noticias
     col_analitica, col_prensa = st.columns([0.7, 0.3])
 
     # --- PANEL IZQUIERDO: CONTENEDOR DE MÓDULOS DE ESTUDIO ---
@@ -182,7 +202,7 @@ with st.spinner("Sincronizando flujo de prensa internacional..."):
                     try:
                         from google.genai import types
                         configuracion_ia = types.GenerateContentConfig(
-                            system_instruction="Actúa como un Analista Financiero virtual (IA) creado por estudiantes de la Universidad Diego Portales. Emite informes ejecutivos de carácter formal, técnico y corporativo basados estrictamente en los datos estadísticos provistos."
+                            system_instruction="Actúa como un Analista Financiero Senior de la Universidad Diego Portales. Emite informes ejecutivos de carácter formal, técnico y corporativo basados estrictamente en los datos estadísticos provistos."
                         )
                         response = ai_client.models.generate_content(
                             model='gemini-2.5-flash', 
@@ -208,14 +228,12 @@ with st.spinner("Sincronizando flujo de prensa internacional..."):
         st.write("---")
         
         if lista_noticias:
-            # Despliegue optimizado de los 5 artículos más recientes
             for noticia in lista_noticias[:5]:
                 titulo = noticia.get('title', 'Publicación sin título')
                 fuente = noticia.get('source_info', {}).get('name', 'Agencia Externa')
                 url_enlace = noticia.get('url', '#')
                 
                 with st.container():
-                    # Formato hipervínculo en negrita para el título corporativo
                     st.markdown(f"**[{titulo}]({url_enlace})**")
                     st.caption(f"Fuente: {fuente} | Idioma: Inglés")
                     st.write("---")
