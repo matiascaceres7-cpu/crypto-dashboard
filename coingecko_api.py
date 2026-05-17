@@ -114,4 +114,4 @@ def obtener_noticias_mercado():
             return response.json().get('Data', [])
             
         # Si devuelve otra cosa (401, 403), lo metemos como una noticia falsa para leer el código de error
-        return [{"title": f"Error del servidor de noticias: Código {response.status_code}", "source_info": {"name": "Sistema"}}]
+        return
