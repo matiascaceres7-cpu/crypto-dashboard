@@ -18,20 +18,15 @@ from coingecko_api import obtener_top_criptos, obtener_historico_activo, obtener
 
 # Configuración de la interfaz con enfoque analítico
 # LO QUE YA TIENES EN TU APP.PY:
-st.set_page_config(
-    page_title="Sistema de Análisis de Activos Digitales - UDP",
-    layout="wide"
-)
-
-# --- LO QUE AGREGAS AHORA (Control de Contraste para la Barra Lateral) ---
+# --- CONTROL DE CONTRASTE PARA LA BARRA LATERAL (GRIS CLARO) ---
 st.markdown(
     """
     <style>
-    /* Forzar fondo blanco absoluto en la barra lateral */
+    /* Forzar fondo gris claro en la barra lateral */
     [data-testid="stSidebar"] {
-        background-color: #FFFFFF !important;
+        background-color: #E5E7EB !important;
     }
-    /* Forzar texto oscuro SOLO dentro de la barra lateral para garantizar legibilidad */
+    /* Mantener el texto oscuro para garantizar legibilidad sobre el gris claro */
     [data-testid="stSidebar"] .stMarkdown, 
     [data-testid="stSidebar"] p, 
     [data-testid="stSidebar"] h1, 
@@ -40,9 +35,9 @@ st.markdown(
     [data-testid="stSidebar"] span {
         color: #1F2937 !important;
     }
-    /* Ajustar la línea divisoria interna de la barra lateral a gris claro */
+    /* Ajustar la línea divisoria a un gris un poco más marcado para el contraste */
     [data-testid="stSidebar"] hr {
-        border-color: #E5E7EB !important;
+        border-color: #D1D5DB !important;
     }
     </style>
     """,
