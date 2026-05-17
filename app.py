@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import os
 from dotenv import load_dotenv
+from google import genai
 load_dotenv()
 from coingecko_api import obtener_top_criptos
 
@@ -130,7 +131,6 @@ if df is not None and not df.empty:
     # Importamos la librería de Google e iniciamos el cliente usando la API Key del archivo .env
 
     # Inicializamos el cliente de IA leyendo la clave del entorno
-    ai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
     if st.button("🤖 Generar Reporte con IA"):
         # 1. Construimos el resumen de datos que le pasaremos a la IA
