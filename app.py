@@ -13,7 +13,7 @@ load_dotenv()
 api_key_gemini = st.secrets["GEMINI_API_KEY"] if "GEMINI_API_KEY" in st.secrets else os.getenv("GEMINI_API_KEY")
 ai_client = genai.Client(api_key=api_key_gemini)
 
-# CORRECCIÓN: Se añade 'obtener_noticias_mercado' a las funciones importadas del backend
+#llamada del backend
 from coingecko_api import obtener_top_criptos, obtener_historico_activo, obtener_noticias_mercado
 
 # Configuración de la interfaz con enfoque analítico
