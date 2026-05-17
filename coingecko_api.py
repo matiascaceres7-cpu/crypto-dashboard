@@ -1,7 +1,9 @@
+import streamlit as st
 import os
 import requests
 import pandas as pd
 from dotenv import load_dotenv
+
 
 # Cargar la API Key desde el archivo .env
 load_dotenv()
@@ -15,6 +17,8 @@ HEADERS = {
     "accept": "application/json",
     "x-cg-demo-api-key": API_KEY
 }
+
+@st.cache_data(ttl=60)
 
 def obtener_top_criptos():
     # ... código anterior de la función ...
