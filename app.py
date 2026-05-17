@@ -78,14 +78,16 @@ if df is not None and not df.empty:
         "Análisis de Volatilidad", 
         "Consultoría Predictiva IA"
     ])
-
     # PESTAÑA 1: MATRIZ DE DATOS
     with tab_datos:
         st.subheader("Reporte de Capitalización de Mercado")
         df_final = df.copy()
-        df_final.columns = ['Activo', 'Ticker', 'Precio Actual', 'Market Cap', 'Variación 24h', 'Imagen']
-        # Exclusión de elementos visuales innecesarios para el formato institucional
-        st.dataframe(df_final.drop(columns=['Imagen']), use_container_width=True, height=450)
+        
+        # Corrección: Lista de 7 elementos para incorporar la columna 'ID' proveniente del backend
+        df_final.columns = ['ID', 'Activo', 'Ticker', 'Precio Actual', 'Market Cap', 'Variación 24h', 'Imagen']
+        
+        # Se excluyen las columnas 'ID' e 'Imagen' de la visualización para mantener el estándar institucional
+        st.dataframe(df_final.drop(columns=['ID', 'Imagen']), use_container_width=True, height=450)
 
     # PESTAÑA 2: GRÁFICO CON PALETA DE TERMINAL DE TRADING
     with tab_analisis:
