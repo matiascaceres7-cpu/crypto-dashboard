@@ -54,3 +54,30 @@ if __name__ == "__main__":
     if df_prueba is not None:
         print("\n¡Conexión exitosa! Aquí están las primeras 3 criptos:")
         print(df_prueba.head(3))
+
+def obtener_historico_activo(coin_id="bitcoin", days=30):
+    """
+    Consume el endpoint de rango histórico de CoinGecko.
+    Retorna un DataFrame estructurado con las variables Fecha y Precio.
+    """
+    url = f"{BASE_URL}/coins/{coin_id}/market_chart"
+    params = {
+        "vs_currency": "usd",
+        "days": days,
+        "interval": "daily"
+    }
+    try:
+        response = requests.get(url, headers=HEADERS, params=params)
+        if response.status_code == 200:
+            precios = response.json().get('prices', [])
+            # Conversión de la lista de matrices a un DataFrame de Pandas
+            df_hist = pd.DataFrame(precios, columns=['Fecha', 'Precio'])
+            # Transformación del timestamp Unix (milisegundos) a formato DateTime estándar
+            df_hist['Fecha'] = pd.to_datetime(df_hist['Fecha'], unit='ms')
+            return df_hist
+        else:
+            print(f"Error en API Historica {response.status_code}: {response.text}")
+            return None
+    except Exception as e:
+        print(f"Error de conexion en modulo historico: {e}")
+        return None
