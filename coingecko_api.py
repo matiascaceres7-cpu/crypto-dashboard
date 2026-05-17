@@ -16,19 +16,21 @@ HEADERS = {
     "x-cg-demo-api-key": API_KEY
 }
 
-def obtener_top_criptos(vs_currency="usd", per_page=10):
-    """
-    Obtiene las principales criptomonedas por capitalización de mercado
-    y las devuelve en un DataFrame de Pandas.
-    """
+def obtener_top_criptos():
+    # ... código anterior de la función ...
+    
     url = f"{BASE_URL}/coins/markets"
+    
+    # Modificación del parámetro de paginación
     params = {
-        "vs_currency": vs_currency,
+        "vs_currency": "usd",
         "order": "market_cap_desc",
-        "per_page": per_page,
+        "per_page": 250,  # <-- Cambie este valor (ej: 20, 50, 100) para ampliar la lista
         "page": 1,
         "sparkline": "false"
     }
+    
+    # ... resto del código que ejecuta el requests.get() ...
     
     try:
         response = requests.get(url, headers=HEADERS, params=params)
