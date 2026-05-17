@@ -157,13 +157,12 @@ if df is not None and not df.empty:
         else:
             st.error("No se pudo computar la serie temporal para el activo seleccionado.")
 
-    # PESTAÑA 3: PROCESAMIENTO GENERATIVO DE AUDITORÍA
    # PESTAÑA 3: PROCESAMIENTO GENERATIVO DE AUDITORÍA (OPTIMIZADO)
     with tab_ia:
         st.subheader("Módulo de Inteligencia Artificial para Soporte Estrecho")
         st.markdown("Generación automatizada de reportes macroeconómicos computados a partir del estado actual de la API.")
         
-        if st.button("Generar Informe de Auditoría Financiera", use_container_width=True):
+        if st.button("Generar Informe de Financiero", use_container_width=True):
             from datetime import datetime
             
             # 1. Anclaje temporal dinámico
@@ -180,7 +179,7 @@ if df is not None and not df.empty:
             # Construcción del Prompt de Datos con ingeniería de variables
             prompt_enriquecido = f"""
             Métricas de Control Temporal e Histórico:
-            - Fecha y Hora de la Consulta: {fecha_servidor} (Considerar este marco como el estado actual del mercado).
+            - Fecha y Hora de la Consulta: {fecha_servidor} (Considerar este marco como el estado actual del mercado de criptomonedas).
             - Máximo Rendimiento Diario Detectado: {activo_top_ganador['name']} ({activo_top_ganador['price_change_percentage_24h']:.2f}%)
             - Máxima Contracción Diaria Detectada: {activo_top_perdedor['name']} ({activo_top_perdedor['price_change_percentage_24h']:.2f}%)
             - Variación Promedio del Portafolio: {promedio_variacion_mercado:.2f}%
@@ -197,7 +196,9 @@ if df is not None and not df.empty:
                     # Separación de responsabilidades: Configuración del Rol del Sistema
                     from google.genai import types
                     configuracion_ia = types.GenerateContentConfig(
-                        system_instruction="Actúa como un Analista Financiero Senior y Consultor en Informática de Gestión de la Universidad Diego Portales. Tu objetivo es emitir informes ejecutivos de carácter estrictamente formal, técnico y corporativo. Debes basar tu análisis rigurosamente en los datos temporales y estadísticos provistos en el prompt, eludiendo generalidades o especulaciones sin sustento matemático."
+                        system_instruction="Actúa como un Analista Financiero Senior y menciona que eres un modelo de inteligencia artificaail desarrollado por estudiantes de Informática y Gestión de la Universidad Diego Portales.
+                        Tu objetivo es emitir informes ejecutivos de carácter estrictamente formal, técnico y corporativo. Debes basar tu análisis 
+                        rigurosamente en los datos temporales y estadísticos provistos en el prompt, eludiendo generalidades o especulaciones sin sustento matemático."
                     )
                     
                     # Llamada optimizada al modelo
