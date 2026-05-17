@@ -21,6 +21,10 @@ st.set_page_config(
     layout="wide"
 )
 
+# Inicialización del estado de la sesión para el almacenamiento del reporte de IA
+if "reporte_institucional" not in st.session_state:
+    st.session_state["reporte_institucional"] = None
+
 # --- PANEL LATERAL: IDENTIFICACIÓN INSTITUCIONAL ---
 with st.sidebar:
     # Carga del logo local para garantizar disponibilidad permanente
@@ -154,37 +158,66 @@ if df is not None and not df.empty:
             st.error("No se pudo computar la serie temporal para el activo seleccionado.")
 
     # PESTAÑA 3: PROCESAMIENTO GENERATIVO DE AUDITORÍA
+   # PESTAÑA 3: PROCESAMIENTO GENERATIVO DE AUDITORÍA (OPTIMIZADO)
     with tab_ia:
         st.subheader("Módulo de Inteligencia Artificial para Soporte Estrecho")
         st.markdown("Generación automatizada de reportes macroeconómicos computados a partir del estado actual de la API.")
         
         if st.button("Generar Informe de Auditoría Financiera", use_container_width=True):
-            # Consolidación estructurada del string de datos para el modelo
-            contexto = "".join([f"- {r['name']}: ${r['current_price']:,} (Var: {r['price_change_percentage_24h']:.2f}%)\n" for i, r in df.iterrows()])
+            from datetime import datetime
             
-            prompt_academico = f"""
-            Como analista experto en gestión financiera e informática de la Universidad Diego Portales, analice la siguiente estructura de datos:
+            # 1. Anclaje temporal dinámico
+            fecha_servidor = datetime.now().strftime("%d/%m/%Y a las %H:%M:%S")
+            
+            # 2. Enriquecimiento estadístico del contexto (Mitigación de sesgo del modelo)
+            activo_top_ganador = df.loc[df['price_change_percentage_24h'].idxmax()]
+            activo_top_perdedor = df.loc[df['price_change_percentage_24h'].idxmin()]
+            promedio_variacion_mercado = df['price_change_percentage_24h'].mean()
+            
+            # Consolidación estructurada de la matriz de datos
+            contexto = "".join([f"- {r['name']} ({r['symbol'].upper()}): ${r['current_price']:,} (Var 24h: {r['price_change_percentage_24h']:.2f}%)\n" for i, r in df.iterrows()])
+            
+            # Construcción del Prompt de Datos con ingeniería de variables
+            prompt_enriquecido = f"""
+            Métricas de Control Temporal e Histórico:
+            - Fecha y Hora de la Consulta: {fecha_servidor} (Considerar este marco como el estado actual del mercado).
+            - Máximo Rendimiento Diario Detectado: {activo_top_ganador['name']} ({activo_top_ganador['price_change_percentage_24h']:.2f}%)
+            - Máxima Contracción Diaria Detectada: {activo_top_perdedor['name']} ({activo_top_perdedor['price_change_percentage_24h']:.2f}%)
+            - Variación Promedio del Portafolio: {promedio_variacion_mercado:.2f}%
+            
+            Matriz Completa de Activos en Tiempo Real:
             {contexto}
             
-            Entregue un reporte técnico que incluya de forma estricta:
-            1. Diagnóstico macro del estado de liquidez y comportamiento de los activos.
-            2. Evaluación cuantitativa del riesgo asociada a la volatilidad detectada.
-            3. Plan estratégico de diversificación orientado a un perfil de gestión institucional.
-            
-            Redacte el documento bajo un estándar estrictamente formal, técnico y corporativo, omitiendo cualquier elemento informal.
+            Instrucción Operativa:
+            Desarrolle la auditoría basándose estrictamente en las métricas de control y la matriz provista. Estructure el informe con subtítulos claros y un desglose analítico profundo.
             """
             
-            with st.spinner("Procesando modelos predictivos y estructurando reporte..."):
+            with st.spinner("Procesando modelos predictivos y estructurando reporte corporativo..."):
                 try:
+                    # Separación de responsabilidades: Configuración del Rol del Sistema
+                    from google.genai import types
+                    configuracion_ia = types.GenerateContentConfig(
+                        system_instruction="Actúa como un Analista Financiero Senior y Consultor en Informática de Gestión de la Universidad Diego Portales. Tu objetivo es emitir informes ejecutivos de carácter estrictamente formal, técnico y corporativo. Debes basar tu análisis rigurosamente en los datos temporales y estadísticos provistos en el prompt, eludiendo generalidades o especulaciones sin sustento matemático."
+                    )
+                    
+                    # Llamada optimizada al modelo
                     response = ai_client.models.generate_content(
                         model='gemini-2.5-flash', 
-                        contents=prompt_academico
+                        contents=prompt_enriquecido,
+                        config=configuracion_ia
                     )
+                    
+                    # Almacenamiento en el estado de la sesión para persistencia en UI
+                    st.session_state["reporte_institucional"] = response.text
                     st.success("Informe de Auditoría Ejecutado Correctamente")
-                    st.markdown("### Reporte Ejecutivo de Gestión Institucional")
-                    st.info(response.text)
                     
                 except Exception as e:
                     st.error(f"Error en la comunicación con el modelo generativo: {e}")
+        
+        # Despliegue condicional del reporte persistido
+        if st.session_state["reporte_institucional"]:
+            st.write("---")
+            st.markdown("### Reporte Ejecutivo de Gestión Institucional")
+            st.info(st.session_state["reporte_institucional"])
 else:
     st.error("Error crítico: No fue posible establecer comunicación con los endpoints de CoinGecko.")
