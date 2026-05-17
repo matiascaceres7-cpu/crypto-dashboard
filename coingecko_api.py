@@ -84,8 +84,7 @@ def obtener_historico_activo(coin_id="bitcoin", days=30):
         print(f"Error de conexion en modulo historico: {e}")
         return None
 
-
-ddef obtener_noticias_mercado():
+def obtener_noticias_mercado():
     """
     Consume el endpoint analítico de CryptoCompare para el feed de prensa.
     Implementa un mecanismo de contingencia híbrido: si falla la autenticación 
