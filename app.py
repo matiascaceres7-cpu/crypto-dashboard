@@ -26,6 +26,18 @@ st.set_page_config(
 if "reporte_institucional" not in st.session_state:
     st.session_state["reporte_institucional"] = None
 
+# ---- AGREGAR ESTO PARA EL SIMULADOR ----
+if "saldo_cash" not in st.session_state:
+    st.session_state["saldo_cash"] = 100000.0  # Capital de simulación inicial ($100k USD)
+
+if "billetera" not in st.session_state:
+    st.session_state["billetera"] = {}  # Almacena formato estructurado {"Bitcoin": 0.5}
+
+
+# Inicialización del estado de la sesión para el almacenamiento del reporte de IA
+if "reporte_institucional" not in st.session_state:
+    st.session_state["reporte_institucional"] = None
+
 # --- PANEL LATERAL: IDENTIFICACIÓN INSTITUCIONAL ---
 with st.sidebar:
     try:
@@ -82,10 +94,12 @@ if df is not None and not df.empty:
 
     # --- PANEL IZQUIERDO: CONTENEDOR MULTI-MÓDULO ---
     with col_analitica:
-        tab_datos, tab_analisis, tab_ia = st.tabs([
+        # Modificar esta línea agregando "Simulador de Portafolio"
+        tab_datos, tab_analisis, tab_ia, tab_simulador = st.tabs([
             "Visualización de Datos", 
             "Análisis de Volatilidad", 
-            "Consultoría Predictiva IA"
+            "Consultoría Predictiva IA",
+            "Simulador de Portafolio" # <-- Nueva pestaña
         ])
 
         # PESTAÑA A: MATRIZ DE CAPITALIZACIÓN DE MERCADO
