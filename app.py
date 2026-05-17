@@ -43,24 +43,22 @@ with st.sidebar:
     st.write("---")
     if st.button("Sincronizar Datos de Mercado", use_container_width=True):
         st.rerun()
-
 # --- CABECERA PRINCIPAL ---
 st.title("Sistema de Monitoreo y Análisis de Activos Digitales")
 st.markdown("""
 Esta plataforma de integración tecnológica procesa datos financieros en tiempo real mediante la interfaz de CoinGecko, 
 acoplando modelos de lenguaje de última generación para la auditoría de carteras y el soporte en la toma de decisiones.
 """)
-
 st.write("---")
-# --- OBTENCIÓN DE DATOS DESDE EL MÓDULO ANALÍTICO BACKEND ---
+
+# --- FLUJO PRINCIPAL DE RENDERIZADO (CONTROL DE EXCEPCIONES EN RED) ---
 with st.spinner("Estableciendo conexión con los servidores de datos..."):
     df = obtener_top_criptos()
 
 if df is not None and not df.empty:
     
-    # --- INDICADORES FINANCIEROS CLAVE ---
+    # 1. INDICADORES FINANCIEROS CLAVE (KPIs SUPERIORES)
     col1, col2, col3 = st.columns(3)
-    
     btc_data = df[df['symbol'].str.lower() == 'btc']
     eth_data = df[df['symbol'].str.lower() == 'eth']
     
@@ -75,14 +73,14 @@ if df is not None and not df.empty:
 
     st.write("---")
 
-    # --- OBTENCIÓN DE DATOS DE PRENSA (PREVIO AL RENDERIZADO) ---
+    # 2. SINCRONIZACIÓN ASÍNCRONA DE PRENSA (COMPONENTE CUALITATIVO)
     with st.spinner("Sincronizando flujo de prensa internacional..."):
         lista_noticias = obtener_noticias_mercado()
 
-    # --- DISEÑO DE TERMINAL: DISTRIBUCIÓN DE COLUMNAS GLOBALES ---
+    # 3. DISTRIBUCIÓN PARALELA DE LA TERMINAL (Estilo Bloomberg: 70% Analítica, 30% Noticias)
     col_analitica, col_prensa = st.columns([0.7, 0.3])
 
-    # --- PANEL IZQUIERDO: CONTENEDOR DE MÓDULOS DE ESTUDIO ---
+    # --- PANEL IZQUIERDO: CONTENEDOR MULTI-MÓDULO ---
     with col_analitica:
         tab_datos, tab_analisis, tab_ia = st.tabs([
             "Visualización de Datos", 
@@ -90,24 +88,28 @@ if df is not None and not df.empty:
             "Consultoría Predictiva IA"
         ])
 
-        # DESPLIEGUE: PESTAÑA 1 (MATRIZ DE DATOS)
+        # PESTAÑA A: MATRIZ DE CAPITALIZACIÓN DE MERCADO
         with tab_datos:
             st.subheader("Reporte de Capitalización de Mercado")
             df_final = df.copy()
+            # Mapeo síncrono de los 7 elementos provenientes del backend enriquecido
             df_final.columns = ['ID', 'Activo', 'Ticker', 'Precio Actual', 'Market Cap', 'Variación 24h', 'Imagen']
+            # Ocultamiento de IDs informáticos para resguardar la estética corporativa
             st.dataframe(df_final.drop(columns=['ID', 'Imagen']), use_container_width=True, height=450)
 
-        # DESPLIEGUE: PESTAÑA 2 (VOLATILIDAD Y SERIES DE TIEMPO)
+        # PESTAÑA B: MODELADO GRÁFICO AVANZADO
         with tab_analisis:
             st.subheader("Análisis Comparativo y Distribución de Mercado")
-            st.markdown("Herramientas analíticas avanzadas para la evaluación de anomalías.")
+            st.markdown("Evaluación de anomalías estadísticas y rendimientos extremos de los activos bajo observación.")
             
+            # Selector de criterio operativo
             criterio_busqueda = st.radio(
                 "Seleccione el segmento de volatilidad a evaluar:",
                 ["Top 15 Activos con Mayor Crecimiento", "Top 15 Activos con Mayor Contracción"],
                 horizontal=True
             )
             
+            # Ordenamiento matricial indexado mediante Pandas
             if "Mayor Crecimiento" in criterio_busqueda:
                 df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=False).head(15)
                 color_escala = 'greens' 
@@ -133,7 +135,7 @@ if df is not None and not df.empty:
             )
             st.plotly_chart(fig_barras, use_container_width=True)
             
-            # Mapa de Calor (Treemap)
+            # Sub-módulo: Mapa de Calor Global (Treemap)
             st.write("---")
             st.subheader("Mapa de Calor del Mercado (Treemap Total)")
             try:
@@ -149,16 +151,16 @@ if df is not None and not df.empty:
                 fig_treemap.update_layout(margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_treemap, use_container_width=True)
             except Exception as e:
-                st.error(f"Error en matriz de mapa de calor: {e}")
+                st.error(f"Error estructural en la generación del mapa de calor: {e}")
 
-            # Análisis de Serie de Tiempo (30 días)
+            # Sub-módulo: Series de Tiempo Históricas (30 Días)
             st.write("---")
             st.subheader("Análisis de Tendencia Histórica")
             diccionario_criptos = dict(zip(df['name'], df['id']))
             nombre_seleccionado = st.selectbox("Activo objeto de estudio histórico:", list(diccionario_criptos.keys()))
             id_seleccionado = diccionario_criptos[nombre_seleccionado]
 
-            with st.spinner("Extrayendo series temporales..."):
+            with st.spinner("Descargando registros históricos del servidor..."):
                 df_historico = obtener_historico_activo(coin_id=id_seleccionado, days=30)
 
             if df_historico is not None and not df_historico.empty:
@@ -170,17 +172,22 @@ if df is not None and not df.empty:
                     template="plotly_dark"
                 )
                 fig_linea.update_traces(line_color='#00FFCC', line_width=2)
-                fig_linea.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', hovermode="x unified")
+                fig_linea.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', 
+                    plot_bgcolor='rgba(0,0,0,0)', 
+                    hovermode="x unified"
+                )
                 st.plotly_chart(fig_linea, use_container_width=True)
 
-        # DESPLIEGUE: PESTAÑA 3 (AUDITORÍA DE INTELIGENCIA ARTIFICIAL)
+        # PESTAÑA C: INGENIERÍA DE PROMPTS E IA COGNITIVA
         with tab_ia:
             st.subheader("Módulo de Inteligencia Artificial para Soporte Estrecho")
+            st.markdown("Computación y procesamiento lingüístico de variables cuantitativas para la emisión de reportes.")
             
             if st.button("Generar Informe de Auditoría Financiera", use_container_width=True):
-                from datetime import datetime
                 fecha_servidor = datetime.now().strftime("%d/%m/%Y a las %H:%M:%S")
                 
+                # Pre-cálculo estadístico mediante Pandas para mitigar alucinaciones numéricas de la IA
                 activo_top_ganador = df.loc[df['price_change_percentage_24h'].idxmax()]
                 activo_top_perdedor = df.loc[df['price_change_percentage_24h'].idxmin()]
                 promedio_variacion_mercado = df['price_change_percentage_24h'].mean()
@@ -198,11 +205,11 @@ if df is not None and not df.empty:
                 {contexto}
                 """
                 
-                with st.spinner("Procesando reporte corporativo..."):
+                with st.spinner("Procesando reporte corporativo en la nube de Google..."):
                     try:
                         from google.genai import types
                         configuracion_ia = types.GenerateContentConfig(
-                            system_instruction="Actúa como un Analista Financiero Senior de la Universidad Diego Portales. Emite informes ejecutivos de carácter formal, técnico y corporativo basados estrictamente en los datos estadísticos provistos."
+                            system_instruction="Actúa como un Analista Financiero Senior virtual, ya que estas creado por estudiantes de informatica de la Universidad Diego Portales. Emite informes de auditoría ejecutiva bajo un carácter estrictamente formal, corporativo y técnico, basándote de forma exclusiva en la analítica de datos provista."
                         )
                         response = ai_client.models.generate_content(
                             model='gemini-2.5-flash', 
@@ -212,18 +219,19 @@ if df is not None and not df.empty:
                         st.session_state["reporte_institucional"] = response.text
                         st.success("Informe de Auditoría Ejecutado Correctamente")
                     except Exception as e:
-                        st.error(f"Error con el modelo generativo: {e}")
+                        st.error(f"Error de comunicación en la API de Inteligencia Artificial: {e}")
             
+            # Renderizado de persistencia de datos (Evita que el informe se borre al cambiar de pestaña)
             if st.session_state["reporte_institucional"]:
                 st.write("---")
                 st.markdown("### Reporte Ejecutivo de Gestión Institucional")
                 st.info(st.session_state["reporte_institucional"])
 
-    # --- PANEL DERECHO: COMPONENTE FIJO DE PRENSA (SIEMPRE VISIBLE) ---
+    # --- PANEL DERECHO: CONTEXTO CUALITATIVO CONTINUO ---
     with col_prensa:
         st.subheader("Prensa y Tendencias Globales")
         st.markdown("""
-        Variables cualitativas en tiempo real para contextualizar anomalías de volatilidad y mitigar riesgos operacionales.
+        Variables cualitativas en tiempo real para contextualizar la volatilidad algorítmica y mitigar riesgos.
         """)
         st.write("---")
         
@@ -235,11 +243,11 @@ if df is not None and not df.empty:
                 
                 with st.container():
                     st.markdown(f"**[{titulo}]({url_enlace})**")
-                    st.caption(f"Fuente: {fuente} | Idioma: Inglés")
+                    st.caption(f"Fuente: {fuente} | Restricción: Idioma Inglés")
                     st.write("---")
         else:
             st.error("Servicio de distribución de prensa no disponible en este momento.")
 else:
-    st.error("Error crítico: No fue posible establecer comunicación con los endpoints de CoinGecko.")
+    st.error("Error crítico: No fue posible establecer comunicación estable con los endpoints de CoinGecko.")
 
     
