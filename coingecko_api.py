@@ -26,7 +26,7 @@ def obtener_top_criptos():
         "vs_currency": "usd",
         "order": "market_cap_desc",
         "per_page": 250,  # <-- Cambie este valor (ej: 20, 50, 100) para ampliar la lista
-        "page": 3,
+        "page": 1,
         "sparkline": "false"
     }
     
