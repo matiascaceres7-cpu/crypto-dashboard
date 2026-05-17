@@ -1,6 +1,0 @@
-[theme]
-primaryColor = "#FF6B00"          # Naranjo corporativo para botones, pestañas y deltas
-backgroundColor = "#000000"       # Fondo negro absoluto para la aplicación principal
-secondaryBackgroundColor = "#111111" # Negro más claro para la barra lateral y tarjetas
-textColor = "#FFFFFF"             # Texto blanco para garantizar contraste y lectura
-font = "sans serif"
