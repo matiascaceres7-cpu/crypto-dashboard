@@ -87,31 +87,35 @@ def obtener_historico_activo(coin_id="bitcoin", days=30):
 def obtener_noticias_mercado():
     """
     Consume el endpoint analítico de CryptoCompare para el feed de prensa.
-    Inyecta un User-Agent corporativo para evitar bloqueos de seguridad (Cloudflare/WAF)
-    cuando el script se ejecuta desde la infraestructura de Streamlit Cloud.
+    Requiere obligatoriamente autenticación por API Key mediante cabeceras HTTP
+    para garantizar la tasa de transferencia en producción.
     """
     import requests
     import os
+    import streamlit as st
     
     url = "https://min-api.cryptocompare.com/data/v2/news/?lang=EN"
     
-    # SOLUCIÓN: Simular una petición desde un navegador web real
+    # Extracción de la credencial desde el entorno seguro
+    api_key_news = st.secrets.get("CRYPTOCOMPARE_API_KEY") or os.getenv("CRYPTOCOMPARE_API_KEY")
+    
+    if not api_key_news:
+        print("Error: No se ha detectado la API Key de CryptoCompare en los Secrets.")
+        return []
+        
+    # Configuración de cabeceras de seguridad y agente de usuario
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "authorization": f"Apikey {api_key_news}"
     }
     
-    try:
-        import streamlit as st
-        api_key_news = st.secrets.get("CRYPTOCOMPARE_API_KEY") or os.getenv("CRYPTOCOMPARE_API_KEY")
-        if api_key_news:
-            headers["authorization"] = f"Apikey {api_key_news}"
-    except Exception:
-        pass
-
     try:
         response = requests.get(url, headers=headers, timeout=8)
         if response.status_code == 200:
             return response.json().get('Data', [])
             
-        # Si devuelve otra cosa (401, 403), lo metemos como una noticia falsa para leer el código de error
-        return [{"title": f"Error del servidor de noticias: Código {response.status_code}", "source_info": {"name": "Sistema"}}]
+        print(f"Error de API de noticias: Código {response.status_code}")
+        return []
+    except Exception as e:
+        print(f"Excepción en el módulo de prensa: {e}")
+        return []
