@@ -1,4 +1,3 @@
----descargar esto desde la terminal---
 streamlit
 pandas
 requests
