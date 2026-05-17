@@ -1,16 +1,29 @@
-import streamlit as st  # <-- Corregido aquí (debe ser 'st')
+import streamlit as st
 import pandas as pd
 import plotly.express as px
 import os
 from dotenv import load_dotenv
 from google import genai
+
+# Cargar variables locales si existen
 load_dotenv()
+
+# Intentar obtener la clave desde Secrets de Streamlit Cloud, o desde el archivo .env local
+api_key_gemini = None
+
+if "GEMINI_API_KEY" in st.secrets:
+    api_key_gemini = st.secrets["GEMINI_API_KEY"]
+else:
+    api_key_gemini = os.getenv("GEMINI_API_KEY")
+
+# Inicializar el cliente con la clave detectada
+ai_client = genai.Client(api_key=api_key_gemini)
+
 from coingecko_api import obtener_top_criptos
 
-
-# 1. Configuración de la página web (Debe ser la primera instrucción de Streamlit)
+# Configuración de la página web
 st.set_page_config(
-    page_title="Crypto Dashboard UDP",
+    page_title="Crypto Dashboard Universitario",
     page_icon="📊",
     layout="wide"
 )
