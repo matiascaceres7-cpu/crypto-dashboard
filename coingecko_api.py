@@ -83,3 +83,22 @@ def obtener_historico_activo(coin_id="bitcoin", days=30):
     except Exception as e:
         print(f"Error de conexion en modulo historico: {e}")
         return None
+
+
+def obtener_noticias_mercado():
+    """
+    Consume el endpoint público de CryptoCompare para extraer las publicaciones
+    más recientes del ecosistema financiero digital.
+    """
+    url = "https://min-api.cryptocompare.com/data/v2/news/?lang=EN"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            # La API devuelve los artículos dentro del objeto 'Data'
+            return response.json().get('Data', [])
+        else:
+            print(f"Error en API de noticias: {response.status_code}")
+            return []
+    except Exception as e:
+        print(f"Excepción al conectar con el servidor de noticias: {e}")
+        return []
