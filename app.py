@@ -93,7 +93,6 @@ if df is not None and not df.empty:
         # Se excluyen las columnas 'ID' e 'Imagen' de la visualización para mantener el estándar institucional
         st.dataframe(df_final.drop(columns=['ID', 'Imagen']), use_container_width=True, height=450)
 
-    # PESTAÑA 2: GRÁFICO CON PALETA DE TERMINAL DE TRADING
     # PESTAÑA 2: ANÁLISIS DE VOLATILIDAD AVANZADO (REESTRUCTURADO)
     with tab_analisis:
         st.subheader("Análisis Comparativo y Distribución de Mercado")
@@ -112,7 +111,7 @@ if df is not None and not df.empty:
         else:
             df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=True).head(15)
             color_escala = 'Reds_r' # Escala compatible de tonalidades rojas invertidas
-        )
+        
         
         # Procesamiento y ordenamiento de matrices con Pandas
         if "Mayor Crecimiento" in criterio_busqueda:
