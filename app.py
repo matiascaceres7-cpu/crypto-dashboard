@@ -94,34 +94,32 @@ if df is not None and not df.empty:
         st.dataframe(df_final.drop(columns=['ID', 'Imagen']), use_container_width=True, height=450)
 
     # PESTAÑA 2: ANÁLISIS DE VOLATILIDAD AVANZADO (REESTRUCTURADO)
+    # PESTAÑA 2: ANÁLISIS DE VOLATILIDAD AVANZADO
     with tab_analisis:
         st.subheader("Análisis Comparativo y Distribución de Mercado")
         st.markdown("""
         Herramientas analíticas avanzadas para la evaluación de anomalías y distribución de capital en el portafolio global.
         """)
         
-        # Segmentación del gráfico de barras mediante un selector de control
         st.write("---")
         st.markdown("### Rendimiento Extremo del Mercado")
         
-       # Corrección de la escala de color para compatibilidad nativa con Plotly
+        # Componente de control (Asegurar que esta definición preceda al condicional)
+        criterio_busqueda = st.radio(
+            "Seleccione el segmento de volatilidad a evaluar:",
+            ["Top 15 Activos con Mayor Crecimiento", "Top 15 Activos con Mayor Contracción"],
+            horizontal=True
+        )
+        
+        # 1. Procesamiento y ordenamiento de matrices con Pandas
         if "Mayor Crecimiento" in criterio_busqueda:
             df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=False).head(15)
-            color_escala = 'greens' # Escala compatible de tonalidades verdes
+            color_escala = 'greens' 
         else:
             df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=True).head(15)
-            color_escala = 'Reds_r' # Escala compatible de tonalidades rojas invertidas
-        
-        
-        # Procesamiento y ordenamiento de matrices con Pandas
-        if "Mayor Crecimiento" in criterio_busqueda:
-            df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=False).head(15)
-            color_escala = 'Summer' # Tonalidades verdes
-        else:
-            df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=True).head(15)
-            color_escala = 'Reds_r' # Tonalidades rojas
+            color_escala = 'reds' 
             
-        # Gráfico de barras optimizado y legible (Máximo 15 elementos)
+        # 2. Gráfico de barras optimizado y legible (Máximo 15 elementos)
         fig_barras = px.bar(
             df_filtrado, 
             x='price_change_percentage_24h',
@@ -133,6 +131,7 @@ if df is not None and not df.empty:
             template="plotly_dark"
         )
         
+        # 3. Optimización visual de la estructura del gráfico
         fig_barras.update_layout(
             margin=dict(l=20, r=20, t=10, b=10),
             coloraxis_showscale=False,
