@@ -94,29 +94,80 @@ if df is not None and not df.empty:
         st.dataframe(df_final.drop(columns=['ID', 'Imagen']), use_container_width=True, height=450)
 
     # PESTAÑA 2: GRÁFICO CON PALETA DE TERMINAL DE TRADING
+    # PESTAÑA 2: ANÁLISIS DE VOLATILIDAD AVANZADO (REESTRUCTURADO)
     with tab_analisis:
-        st.subheader("Análisis Comparativo de Variación Porcentual")
-        df_sorted = df.sort_values(by='price_change_percentage_24h', ascending=False)
+        st.subheader("Análisis Comparativo y Distribución de Mercado")
+        st.markdown("""
+        Herramientas analíticas avanzadas para la evaluación de anomalías y distribución de capital en el portafolio global.
+        """)
         
-        # Implementación de plantilla oscura para simular un entorno de criptoactivos
-        fig = px.bar(
-            df_sorted, 
+        # Segmentación del gráfico de barras mediante un selector de control
+        st.write("---")
+        st.markdown("### Rendimiento Extremo del Mercado")
+        
+        criterio_busqueda = st.radio(
+            "Seleccione el segmento de volatilidad a evaluar:",
+            ["Top 15 Activos con Mayor Crecimiento", "Top 15 Activos con Mayor Contracción"],
+            horizontal=True
+        )
+        
+        # Procesamiento y ordenamiento de matrices con Pandas
+        if "Mayor Crecimiento" in criterio_busqueda:
+            df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=False).head(15)
+            color_escala = 'Summer' # Tonalidades verdes
+        else:
+            df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=True).head(15)
+            color_escala = 'Reds_r' # Tonalidades rojas
+            
+        # Gráfico de barras optimizado y legible (Máximo 15 elementos)
+        fig_barras = px.bar(
+            df_filtrado, 
             x='price_change_percentage_24h',
             y='name',
             orientation='h',
-            labels={'price_change_percentage_24h': 'Variación diaria (%)', 'name': 'Activo evaluado'},
+            labels={'price_change_percentage_24h': 'Variación diaria (%)', 'name': 'Activo'},
             color='price_change_percentage_24h',
-            color_continuous_scale='RdYlGn',  # Verde para rendimientos positivos, rojo para negativos
-            template="plotly_dark"            # Estética de terminal financiera
+            color_continuous_scale=color_escala,
+            template="plotly_dark"
         )
         
-        fig.update_layout(
-            margin=dict(l=20, r=20, t=20, b=20),
+        fig_barras.update_layout(
+            margin=dict(l=20, r=20, t=10, b=10),
             coloraxis_showscale=False,
-            paper_bgcolor='rgba(0,0,0,0)',    # Transparencia integrada para acoplar al contenedor
+            paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)'
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig_barras, use_container_width=True)
+        
+        # --- AMPLIACIÓN BI: MAPA DE CALOR DE CAPITALIZACIÓN GLOBAL ---
+        st.write("---")
+        st.subheader("Mapa de Calor del Mercado (Treemap Total)")
+        st.markdown("""
+        La siguiente visualización distribuye los 250 activos de la API. El tamaño del bloque representa 
+        la dominancia por Capitalización de Mercado, mientras que el color mapea la variación porcentual de las últimas 24 horas.
+        """)
+        
+        try:
+            # Construcción del Treemap institucional para grandes volúmenes de datos
+            fig_treemap = px.treemap(
+                df,
+                path=['name'],  # Define la jerarquía del bloque
+                values='market_cap',  # Define el volumen/tamaño del cuadro
+                color='price_change_percentage_24h',  # Define la regla de coloración
+                color_continuous_scale='RdYlGn',  # Escala semafórica estándar (Rojo - Amarillo - Verde)
+                color_continuous_midpoint=0,  # El punto neutral (0%) se asigna al color central
+                template="plotly_dark"
+            )
+            
+            fig_treemap.update_layout(
+                margin=dict(l=10, r=10, t=10, b=10),
+                paper_bgcolor='rgba(0,0,0,0)'
+            )
+            st.plotly_chart(fig_treemap, use_container_width=True)
+            
+        except Exception as e:
+            st.error(f"No se pudo inicializar la matriz del mapa de calor: {e}")
+
         # --- AMPLIACIÓN DE LA API: ANÁLISIS DE SERIES DE TIEMPO ---
         st.write("---")
         st.subheader("Análisis de Tendencia Histórica e Inteligencia de Negocios")
@@ -125,17 +176,15 @@ if df is not None and not df.empty:
         Este módulo mitiga el sesgo de la volatilidad diaria mediante la visualización de tendencias macro.
         """)
 
-        # Generación de selectores mapeando el ID técnico de la API
         diccionario_criptos = dict(zip(df['name'], df['id']))
-        nombre_seleccionado = st.selectbox("Activo objeto de estudio historico:", list(diccionario_criptos.keys()))
+        nombre_seleccionado = st.selectbox("Activo objeto de estudio histórico:", list(diccionario_criptos.keys()))
         id_seleccionado = diccionario_criptos[nombre_seleccionado]
 
-        # Consulta al backend enriquecido
         with st.spinner("Extrayendo series temporales desde el servidor..."):
+            from coingecko_api import obtener_historico_activo
             df_historico = obtener_historico_activo(coin_id=id_seleccionado, days=30)
 
         if df_historico is not None and not df_historico.empty:
-            # Construcción de gráfico de líneas con la paleta financiera oscura
             fig_linea = px.line(
                 df_historico,
                 x='Fecha',
@@ -145,14 +194,12 @@ if df is not None and not df.empty:
                 template="plotly_dark"
             )
             
-            # Optimización estética del gráfico lineal corporativo
             fig_linea.update_traces(line_color='#00FFCC', line_width=2)
             fig_linea.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
                 hovermode="x unified"
             )
-            
             st.plotly_chart(fig_linea, use_container_width=True)
         else:
             st.error("No se pudo computar la serie temporal para el activo seleccionado.")
