@@ -105,10 +105,13 @@ if df is not None and not df.empty:
         st.write("---")
         st.markdown("### Rendimiento Extremo del Mercado")
         
-        criterio_busqueda = st.radio(
-            "Seleccione el segmento de volatilidad a evaluar:",
-            ["Top 15 Activos con Mayor Crecimiento", "Top 15 Activos con Mayor Contracción"],
-            horizontal=True
+       # Corrección de la escala de color para compatibilidad nativa con Plotly
+        if "Mayor Crecimiento" in criterio_busqueda:
+            df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=False).head(15)
+            color_escala = 'greens' # Escala compatible de tonalidades verdes
+        else:
+            df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=True).head(15)
+            color_escala = 'Reds_r' # Escala compatible de tonalidades rojas invertidas
         )
         
         # Procesamiento y ordenamiento de matrices con Pandas
