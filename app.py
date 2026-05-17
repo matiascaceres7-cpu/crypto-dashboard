@@ -17,9 +17,36 @@ ai_client = genai.Client(api_key=api_key_gemini)
 from coingecko_api import obtener_top_criptos, obtener_historico_activo, obtener_noticias_mercado
 
 # Configuración de la interfaz con enfoque analítico
+# LO QUE YA TIENES EN TU APP.PY:
 st.set_page_config(
     page_title="Sistema de Análisis de Activos Digitales - UDP",
     layout="wide"
+)
+
+# --- LO QUE AGREGAS AHORA (Control de Contraste para la Barra Lateral) ---
+st.markdown(
+    """
+    <style>
+    /* Forzar fondo blanco absoluto en la barra lateral */
+    [data-testid="stSidebar"] {
+        background-color: #FFFFFF !important;
+    }
+    /* Forzar texto oscuro SOLO dentro de la barra lateral para garantizar legibilidad */
+    [data-testid="stSidebar"] .stMarkdown, 
+    [data-testid="stSidebar"] p, 
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] span {
+        color: #1F2937 !important;
+    }
+    /* Ajustar la línea divisoria interna de la barra lateral a gris claro */
+    [data-testid="stSidebar"] hr {
+        border-color: #E5E7EB !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
 )
 
 # Inicialización del estado de la sesión para el almacenamiento del reporte de IA
