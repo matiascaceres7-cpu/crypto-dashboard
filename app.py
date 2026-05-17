@@ -55,7 +55,7 @@ st.write("---")
 
 # Obtención de datos desde el módulo analítico backend
 # --- OBTENCIÓN DE DATOS DE PRENSA (PREVIO AL RENDERIZADO) ---
-    with st.spinner("Sincronizando flujo de prensa internacional..."):
+with st.spinner("Sincronizando flujo de prensa internacional..."):
         lista_noticias = obtener_noticias_mercado()
 
     # --- DISEÑO DE TERMINAL: DISTRIBUCIÓN DE COLUMNAS GLOBALES ---
@@ -223,3 +223,5 @@ st.write("---")
             st.error("Servicio de distribución de prensa no disponible en este momento.")
 else:
     st.error("Error crítico: No fue posible establecer comunicación con los endpoints de CoinGecko.")
+
+    
