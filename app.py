@@ -16,9 +16,8 @@ ai_client = genai.Client(api_key=api_key_gemini)
 #llamada del backend
 from coingecko_api import obtener_top_criptos, obtener_historico_activo, obtener_noticias_mercado
 
-# Configuración de la interfaz con enfoque analítico
-# LO QUE YA TIENES EN TU APP.PY:
 # --- CONTROL DE CONTRASTE PARA LA BARRA LATERAL (GRIS CLARO) ---
+# --- CONTROL DE CONTRASTE Y ANCHO DE LA INTERFAZ ---
 st.markdown(
     """
     <style>
@@ -26,7 +25,7 @@ st.markdown(
     [data-testid="stSidebar"] {
         background-color: #E5E7EB !important;
     }
-    /* Mantener el texto oscuro para garantizar legibilidad sobre el gris claro */
+    /* Mantener el texto oscuro para garantizar legibilidad en la barra lateral */
     [data-testid="stSidebar"] .stMarkdown, 
     [data-testid="stSidebar"] p, 
     [data-testid="stSidebar"] h1, 
@@ -35,9 +34,16 @@ st.markdown(
     [data-testid="stSidebar"] span {
         color: #1F2937 !important;
     }
-    /* Ajustar la línea divisoria a un gris un poco más marcado para el contraste */
+    /* Ajustar la línea divisoria a un gris un poco más marcado */
     [data-testid="stSidebar"] hr {
         border-color: #D1D5DB !important;
+    }
+    
+    /* SOLUCIÓN: Romper el modo centrado y forzar el diseño ancho (Wide) */
+    [data-testid="stMainBlockContainer"], .block-container {
+        max-width: 95% !important;
+        padding-left: 3rem !important;
+        padding-right: 3rem !important;
     }
     </style>
     """,
