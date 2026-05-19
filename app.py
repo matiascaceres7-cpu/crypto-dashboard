@@ -146,12 +146,52 @@ if df is not None and not df.empty:
         ])
 
         # PESTAÑA A: MATRIZ DE CAPITALIZACIÓN DE MERCADO
+        # PESTAÑA A: MATRIZ DE CAPITALIZACIÓN DE MERCADO (MULTIDIVISA ENTERPRISE)
         with tab_datos:
-            st.subheader("Reporte de Capitalización de Mercado")
+            st.subheader("Reporte Global y Local de Capitalización de Mercado")
+            st.markdown("Variables cuantitativas indexadas en dólares americanos (USD) y convertidas a pesos chilenos (CLP).")
+            
             df_final = df.copy()
-            df_final.columns = ['ID', 'Activo', 'Ticker', 'Precio Actual', 'Market Cap', 'Variación 24h', 'Imagen']
-            st.dataframe(df_final.drop(columns=['ID', 'Imagen']), use_container_width=True, height=450)
-
+            
+            # 1. Definición de la tasa de cambio de referencia para Chile
+            TASA_CAMBIO_CLP = 935.0  # Paridad base: 1 USD = 935 CLP
+            
+            # 2. Computación de las nuevas capas de datos en el DataFrame
+            df_final['Precio (CLP)'] = df_final['current_price'] * TASA_CAMBIO_CLP
+            df_final['Market Cap (CLP)'] = df_final['market_cap'] * TASA_CAMBIO_CLP
+            
+            # 3. Selección y ordenamiento de columnas para la entrega formal (Excluyendo ID e Imagen)
+            df_final = df_final[[
+                'name', 'symbol', 
+                'current_price', 'Precio (CLP)', 
+                'market_cap', 'Market Cap (CLP)', 
+                'price_change_percentage_24h'
+            ]]
+            
+            # 4. Renombrado estructural de las columnas
+            df_final.columns = [
+                'Activo', 'Ticker', 
+                'Precio (USD)', 'Precio (CLP)', 
+                'Market Cap (USD)', 'Market Cap (CLP)', 
+                'Variación 24h'
+            ]
+            
+            # 5. Renderizado avanzado utilizando máscaras de configuración visual
+            st.dataframe(
+                df_final,
+                use_container_width=True,
+                height=450,
+                hide_index=True,
+                column_config={
+                    "Activo": st.column_config.TextColumn("Activo", help="Nombre oficial del activo digital"),
+                    "Ticker": st.column_config.TextColumn("Ticker", help="Nomenclatura internacional"),
+                    "Precio (USD)": st.column_config.NumberColumn("Precio (USD)", format="$%,.2f"),
+                    "Precio (CLP)": st.column_config.NumberColumn("Precio (CLP)", format="$%,.0f"),
+                    "Market Cap (USD)": st.column_config.NumberColumn("Market Cap (USD)", format="$%,.0f"),
+                    "Market Cap (CLP)": st.column_config.NumberColumn("Market Cap (CLP)", format="$%,.0f"),
+                    "Variación 24h": st.column_config.NumberColumn("Variación 24h", format="%.2f%%")
+                }
+            )
         # PESTAÑA B: MODELADO GRÁFICO AVANZADO
         with tab_analisis:
             st.subheader("Análisis Comparativo y Distribución de Mercado")
