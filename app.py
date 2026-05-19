@@ -255,7 +255,7 @@ if df is not None and not df.empty:
             # Forzar el color exacto en los tracks de las barras
             fig_linea = px.line(df_historico, x='Fecha', y='Precio', template="plotly_dark")
                 # Cambiamos el color de la línea a Naranja Corporativo (#FF6B00)
-                fig_linea.update_traces(line_color='#FF6B00', line_width=2.5)
+            fig_linea.update_traces(line_color='#FF6B00', line_width=2.5)
             
             # Sub-módulo: Mapa de Calor Global (Treemap)
             st.write("---")
