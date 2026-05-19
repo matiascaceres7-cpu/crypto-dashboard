@@ -299,7 +299,7 @@ if df is not None and not df.empty:
                     plot_bgcolor='rgba(0,0,0,0)', 
                     hovermode="x unified"
                 )
-                st.plotly_chart(fig_linea, use_container_width=True)
+                    st.plotly_chart(fig_linea, use_container_width=True)
 
         # PESTAÑA C: INGENIERÍA DE PROMPTS E IA COGNITIVA
         with tab_ia:
