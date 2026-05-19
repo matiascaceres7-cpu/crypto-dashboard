@@ -18,35 +18,35 @@ from coingecko_api import obtener_top_criptos, obtener_historico_activo, obtener
 
 # --- CONTROL DE CONTRASTE, ANCHO E INPUTS DE LA INTERFAZ ---
 # --- CONTROL DE CONTRASTE, ANCHO E INPUTS DE LA INTERFAZ ---
+# --- ARQUITECTURA DE DISEÑO AVANZADO (UI/UX PREMIUM) ---
 st.markdown(
     """
     <style>
-    /* Forzar fondo gris claro en la barra lateral */
+    /* 1. BARRA LATERAL: Control de contraste institucional */
     [data-testid="stSidebar"] {
         background-color: #E5E7EB !important;
+        box-shadow: 2px 0px 15px rgba(0,0,0,0.5) !important;
     }
-    /* Mantener el texto oscuro para garantizar legibilidad en la barra lateral */
     [data-testid="stSidebar"] .stMarkdown, 
-    [data-testid="stSidebar"] p, 
-    [data-testid="stSidebar"] h1, 
-    [data-testid="stSidebar"] h2, 
-    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3,
     [data-testid="stSidebar"] span {
         color: #1F2937 !important;
+        font-weight: 500;
     }
-    /* Ajustar la línea divisoria a un gris un poco más marcado */
     [data-testid="stSidebar"] hr {
         border-color: #D1D5DB !important;
     }
     
-    /* Romper el modo centrado y forzar el diseño ancho (Wide) */
+    /* 2. DISEÑO ANCHO: Maximizar área analítica */
     [data-testid="stMainBlockContainer"], .block-container {
         max-width: 95% !important;
+        padding-top: 2rem !important;
         padding-left: 3rem !important;
         padding-right: 3rem !important;
     }
 
-    /* CORRECCIÓN ABSOLUTA: Forzar fondo oscuro en toda la subestructura de Selectbox y NumberInput */
+    /* 3. CONTROLES DEL SIMULADOR: Unificación de inputs oscuros */
     div[data-testid="stSelectbox"] [data-baseweb="select"],
     div[data-testid="stSelectbox"] [data-baseweb="select"] > div,
     div[data-testid="stNumberInput"] > div,
@@ -54,17 +54,53 @@ st.markdown(
         background-color: #1F2937 !important;
         color: #FFFFFF !important;
         border: 1px solid #374151 !important;
+        border-radius: 6px !important;
     }
-    
-    /* Forzar flechas de selección, iconos, textos internos y botones de incremento a blanco */
-    div[data-testid="stSelectbox"] svg,
-    div[data-testid="stSelectbox"] span,
-    div[data-testid="stSelectbox"] div,
-    div[data-testid="stNumberInput"] button,
+    div[data-testid="stSelectbox"] svg, div[data-testid="stSelectbox"] span,
+    div[data-testid="stSelectbox"] div, div[data-testid="stNumberInput"] button,
     div[data-testid="stNumberInput"] svg {
         color: #FFFFFF !important;
         fill: #FFFFFF !important;
         background-color: transparent !important;
+    }
+
+    /* 4. TABS/PESTAÑAS: Estilo Bloomberg con acento Naranja */
+    button[data-baseweb="tab"] {
+        color: #9CA3AF !important;
+        font-size: 15px !important;
+        transition: all 0.3s ease;
+    }
+    button[data-baseweb="tab"]:hover {
+        color: #FF6B00 !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #FF6B00 !important;
+        border-bottom-color: #FF6B00 !important;
+        font-weight: bold !important;
+    }
+
+    /* 5. METRIC CARDS: Transformación a Tarjetas Corporativas */
+    div[data-testid="stMetric"] {
+        background-color: #1F2937 !important;
+        border-left: 5px solid #FF6B00 !important; /* Línea de acento naranja */
+        border-radius: 8px !important;
+        padding: 15px 20px !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
+        transition: transform 0.2s ease;
+    }
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-2px); /* Efecto flotante al pasar el mouse */
+    }
+    div[data-testid="stMetric"] label {
+        color: #9CA3AF !important; /* Texto secundario gris claro */
+        font-size: 13px !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    div[data-testid="stMetric"] [data-testid="stMetricValue"] {
+        color: #FFFFFF !important;
+        font-size: 28px !important;
+        font-weight: 700 !important;
     }
     </style>
     """,
@@ -205,28 +241,21 @@ if df is not None and not df.empty:
             
             if "Mayor Crecimiento" in criterio_busqueda:
                 df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=False).head(15)
-                color_escala = 'greens' 
+                # Reemplaza la escala por un color sólido naranja corporativo
+                color_secuencia = ['#FF6B00'] * len(df_filtrado)
             else:
                 df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=True).head(15)
-                color_escala = 'reds' 
+                color_secuencia = ['#EF4444'] * len(df_filtrado) # Rojo para pérdidas
                 
             fig_barras = px.bar(
-                df_filtrado, 
-                x='price_change_percentage_24h',
-                y='name',
-                orientation='h',
+                df_filtrado, x='price_change_percentage_24h', y='name', orientation='h',
                 labels={'price_change_percentage_24h': 'Variación diaria (%)', 'name': 'Activo'},
-                color='price_change_percentage_24h',
-                color_continuous_scale=color_escala,
                 template="plotly_dark"
             )
-            fig_barras.update_layout(
-                margin=dict(l=20, r=20, t=10, b=10),
-                coloraxis_showscale=False,
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)'
-            )
-            st.plotly_chart(fig_barras, use_container_width=True)
+            # Forzar el color exacto en los tracks de las barras
+            fig_linea = px.line(df_historico, x='Fecha', y='Precio', template="plotly_dark")
+                # Cambiamos el color de la línea a Naranja Corporativo (#FF6B00)
+                fig_linea.update_traces(line_color='#FF6B00', line_width=2.5)
             
             # Sub-módulo: Mapa de Calor Global (Treemap)
             st.write("---")
