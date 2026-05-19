@@ -32,7 +32,12 @@ def llamar_gemini(prompt: str, system_instruction: str = None) -> str | None:
         response = ai_client.models.generate_content(**kwargs)
         return response.text
     except Exception as e:
-        st.error(f"Error en la API de Inteligencia Artificial: {e}")
+        error_str = str(e)
+        # Verificamos si es el error 429 de límite de cuota
+        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+            st.warning("⏳ La IA está recibiendo muchas consultas (Límite de la capa gratuita). Por favor, espera 30 segundos y vuelve a intentar.")
+        else:
+            st.error(f"Error en la API de Inteligencia Artificial: {e}")
         return None
  
 # ── ESTILOS CSS ───────────────────────────────────────────────────────────────
@@ -430,76 +435,66 @@ if df is not None and not df.empty:
                 "precios actuales en tiempo real para fundamentar sus respuestas."
             )
             
-            # Forzar el color de letra negro y fondo blanco en el input de texto del chat
-            st.markdown(
-                """
-                <style>
-                div[data-testid="stTextInput"] input {
-                    color: #000000 !important;
-                    background-color: #FFFFFF !important;
-                    border: 1px solid #D1D5DB !important;
-                }
-                </style>
-                """,
-                unsafe_allow_html=True
-            )
-            
+            # Botón para limpiar el chat arriba (fuera del contenedor)
+            if st.button("🗑️ Limpiar chat", key="btn_limpiar_chat"):
+                st.session_state["chat_historia"] = []
+                st.rerun()
+                
             st.write("---")
 
+            # Preparar el contexto oculto de datos
             contexto_chat = "Datos actuales de mercado (Top 50):\n" + "".join([
                 f"- {r['name']} ({r['symbol'].upper()}): ${r['current_price']:,} | Var 24h: {r['price_change_percentage_24h']:.2f}% | Market Cap: ${r['market_cap']:,}\n"
                 for _, r in df.head(50).iterrows()
             ])
 
-            chat_container = st.container(height=380)
+            # 1. CONTENEDOR DEL HISTORIAL DE MENSAJES
+            chat_container = st.container(height=450)
             with chat_container:
+                # Mensaje de bienvenida
                 if not st.session_state["chat_historia"]:
-                    st.markdown(
-                        '<div class="chat-ai">👋 Hola, soy tu asistente de mercado cripto. '
-                        'Pregúntame sobre precios, tendencias, comparaciones o cualquier duda sobre los activos digitales.</div>',
-                        unsafe_allow_html=True
-                    )
+                    with st.chat_message("assistant"):
+                        st.write("👋 Hola, soy tu asistente de mercado cripto. Pregúntame sobre precios, tendencias, comparaciones o cualquier duda sobre los activos digitales.")
+                
+                # Dibujar todos los mensajes guardados en el historial
                 for msg in st.session_state["chat_historia"]:
-                    if msg["role"] == "user":
-                        st.markdown(f'<div class="chat-user">👤 {msg["content"]}</div>', unsafe_allow_html=True)
-                    else:
-                        st.markdown(f'<div class="chat-ai">🤖 {msg["content"]}</div>', unsafe_allow_html=True)
+                    with st.chat_message(msg["role"]):
+                        st.write(msg["content"])
 
-            # Implementación del formulario para enviar con "Enter"
-            with st.form(key="formulario_chat", clear_on_submit=True):
-                col_chat_in, col_chat_btn = st.columns([0.82, 0.18])
-                with col_chat_in:
-                    pregunta_usuario = st.text_input(
-                        "Escribe tu consulta:", placeholder="Ej: ¿Cuál es la mejor cripto para invertir hoy?",
-                        label_visibility="collapsed"
-                    )
-                with col_chat_btn:
-                    enviar = st.form_submit_button("Enviar ➤", use_container_width=True)
-
-            col_limpiar, _ = st.columns([0.2, 0.8])
-            with col_limpiar:
-                if st.button("🗑️ Limpiar chat", key="btn_limpiar_chat"):
-                    st.session_state["chat_historia"] = []
-                    st.rerun()
-
-            if enviar and pregunta_usuario.strip():
+            # 2. BARRA DE ESCRITURA NATIVA (Funciona con Enter automáticamente)
+            # st.chat_input siempre se coloca al final y maneja su propio estilo
+            if pregunta_usuario := st.chat_input("Escribe tu consulta. Ej: ¿Cuál es la mejor cripto hoy?"):
+                
+                # Mostrar inmediatamente el mensaje del usuario en la pantalla
+                with chat_container:
+                    with st.chat_message("user"):
+                        st.write(pregunta_usuario)
+                        
+                # Guardar el mensaje del usuario en la memoria
                 st.session_state["chat_historia"].append({"role": "user", "content": pregunta_usuario})
+                
+                # Preparar todo el texto que le enviaremos a Gemini
                 contenido_gemini = "\n".join([
                     f"{'Usuario' if m['role'] == 'user' else 'Asistente'}: {m['content']}"
                     for m in st.session_state["chat_historia"]
                 ])
-                with st.spinner("Procesando tu consulta..."):
-                    respuesta_ia = llamar_gemini(
-                        prompt=contenido_gemini,
-                        system_instruction=(
-                            f"Eres un asistente experto en criptomonedas de la Universidad Diego Portales. "
-                            f"Responde siempre en español, de forma clara y directa. "
-                            f"Tienes acceso a los siguientes datos de mercado en tiempo real:\n\n{contexto_chat}"
-                        )
-                    )
-                    if respuesta_ia:
-                        st.session_state["chat_historia"].append({"role": "assistant", "content": respuesta_ia})
-                        st.rerun()
+                
+                # Llamar a la IA mostrando una animación de carga
+                with chat_container:
+                    with st.chat_message("assistant"):
+                        with st.spinner("Procesando tu consulta..."):
+                            respuesta_ia = llamar_gemini(
+                                prompt=contenido_gemini,
+                                system_instruction=(
+                                    f"Eres un asistente experto en criptomonedas de la Universidad Diego Portales. "
+                                    f"Responde siempre en español, de forma clara y directa. "
+                                    f"Tienes acceso a los siguientes datos de mercado en tiempo real:\n\n{contexto_chat}"
+                                )
+                            )
+                            # Si responde bien, lo mostramos y lo guardamos
+                            if respuesta_ia:
+                                st.write(respuesta_ia)
+                                st.session_state["chat_historia"].append({"role": "assistant", "content": respuesta_ia})
  
         # ── TAB G (NUEVO): COMPARADOR ─────────────────────────────────────────
         with tab_comparador:
