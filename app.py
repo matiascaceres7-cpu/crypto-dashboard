@@ -252,10 +252,26 @@ if df is not None and not df.empty:
                 labels={'price_change_percentage_24h': 'Variación diaria (%)', 'name': 'Activo'},
                 template="plotly_dark"
             )
-            # Forzar el color exacto en los tracks de las barras
-            fig_linea = px.line(df_historico, x='Fecha', y='Precio', template="plotly_dark")
-                # Cambiamos el color de la línea a Naranja Corporativo (#FF6B00)
-            fig_linea.update_traces(line_color='#FF6B00', line_width=2.5)
+            fig_barras = px.bar(
+                df_filtrado, x='price_change_percentage_24h', y='name', orientation='h',
+                labels={'price_change_percentage_24h': 'Variación diaria (%)', 'name': 'Activo'},
+                template="plotly_dark"
+            )
+            
+            # --- CORRECCIÓN AQUÍ: Esto es lo que debe ir en las líneas 255 a 258 ---
+            # Forzar el color exacto en los tracks de las barras (Naranja o Rojo)
+            fig_barras.update_traces(marker_color=color_secuencia)
+            fig_barras.update_layout(
+                margin=dict(l=20, r=20, t=10, b=10), 
+                coloraxis_showscale=False, 
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)'
+            )
+            # Renderizar el gráfico de barras en la interfaz
+            st.plotly_chart(fig_barras, use_container_width=True)
+            
+            # Sub-módulo: Mapa de Calor Global (Treemap) -> Esto es lo que sigue en la línea 260
+            st.write("---")
             
             # Sub-módulo: Mapa de Calor Global (Treemap)
             st.write("---")
