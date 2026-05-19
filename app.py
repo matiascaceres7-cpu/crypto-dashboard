@@ -70,6 +70,10 @@ st.markdown(
         color: #FFFFFF !important;
         border: 1px solid #374151 !important;
         border-radius: 6px !important;
+    div[data-testid="stTextInput"] input {
+        color: #000000 !important;
+        background-color: #FFFFFF !important;
+        border: 1px solid #D1D5DB !important;
     }
     div[data-testid="stSelectbox"] svg, div[data-testid="stSelectbox"] span,
     div[data-testid="stSelectbox"] div, div[data-testid="stNumberInput"] button,
@@ -198,12 +202,11 @@ if df is not None and not df.empty:
  
     # ── PANEL IZQUIERDO ───────────────────────────────────────────────────────
     with col_analitica:
-        tab_datos, tab_analisis, tab_tecnico, tab_ia, tab_asesor, tab_chat, tab_comparador, tab_simulador = st.tabs([
+        tab_datos, tab_analisis, tab_tecnico, tab_ia, tab_chat, tab_comparador, tab_simulador = st.tabs([
             " Visualización de Datos",
             " Análisis de Volatilidad",
             " Análisis Técnico",
             " Consultoría IA",
-            " Asesor de Portafolio",
             " Chat de Mercado",
             " Comparador",
             " Simulador de Portafolio"
@@ -426,18 +429,33 @@ if df is not None and not df.empty:
                 "Pregunta cualquier cosa sobre el mercado cripto. La IA tiene acceso a los "
                 "precios actuales en tiempo real para fundamentar sus respuestas."
             )
+            
+            # Forzar el color de letra negro y fondo blanco en el input de texto del chat
+            st.markdown(
+                """
+                <style>
+                div[data-testid="stTextInput"] input {
+                    color: #000000 !important;
+                    background-color: #FFFFFF !important;
+                    border: 1px solid #D1D5DB !important;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+            
             st.write("---")
- 
+
             contexto_chat = "Datos actuales de mercado (Top 50):\n" + "".join([
                 f"- {r['name']} ({r['symbol'].upper()}): ${r['current_price']:,} | Var 24h: {r['price_change_percentage_24h']:.2f}% | Market Cap: ${r['market_cap']:,}\n"
                 for _, r in df.head(50).iterrows()
             ])
- 
+
             chat_container = st.container(height=380)
             with chat_container:
                 if not st.session_state["chat_historia"]:
                     st.markdown(
-                        '<div class="chat-ai"> Hola, soy tu asistente de mercado cripto. '
+                        '<div class="chat-ai">👋 Hola, soy tu asistente de mercado cripto. '
                         'Pregúntame sobre precios, tendencias, comparaciones o cualquier duda sobre los activos digitales.</div>',
                         unsafe_allow_html=True
                     )
@@ -446,22 +464,24 @@ if df is not None and not df.empty:
                         st.markdown(f'<div class="chat-user">👤 {msg["content"]}</div>', unsafe_allow_html=True)
                     else:
                         st.markdown(f'<div class="chat-ai">🤖 {msg["content"]}</div>', unsafe_allow_html=True)
- 
-            col_chat_in, col_chat_btn = st.columns([0.82, 0.18])
-            with col_chat_in:
-                pregunta_usuario = st.text_input(
-                    "Escribe tu consulta:", placeholder="Ej: ¿Cuál es la mejor cripto para invertir hoy?",
-                    label_visibility="collapsed", key="chat_input"
-                )
-            with col_chat_btn:
-                enviar = st.button("Enviar ➤", use_container_width=True, key="btn_chat")
- 
+
+            # Implementación del formulario para enviar con "Enter"
+            with st.form(key="formulario_chat", clear_on_submit=True):
+                col_chat_in, col_chat_btn = st.columns([0.82, 0.18])
+                with col_chat_in:
+                    pregunta_usuario = st.text_input(
+                        "Escribe tu consulta:", placeholder="Ej: ¿Cuál es la mejor cripto para invertir hoy?",
+                        label_visibility="collapsed"
+                    )
+                with col_chat_btn:
+                    enviar = st.form_submit_button("Enviar ➤", use_container_width=True)
+
             col_limpiar, _ = st.columns([0.2, 0.8])
             with col_limpiar:
                 if st.button("🗑️ Limpiar chat", key="btn_limpiar_chat"):
                     st.session_state["chat_historia"] = []
                     st.rerun()
- 
+
             if enviar and pregunta_usuario.strip():
                 st.session_state["chat_historia"].append({"role": "user", "content": pregunta_usuario})
                 contenido_gemini = "\n".join([
