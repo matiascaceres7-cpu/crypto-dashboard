@@ -285,21 +285,21 @@ if df is not None and not df.empty:
             with st.spinner("Descargando registros históricos del servidor..."):
                 df_historico = obtener_historico_activo(coin_id=id_seleccionado, days=30)
 
-            if df_historico is not None and not df_historico.empty:
-                fig_linea = px.line(
-                    df_historico,
-                    x='Fecha',
-                    y='Precio',
-                    labels={'Fecha': 'Línea Temporal', 'Precio': 'Valor de Cierre (USD)'},
-                    template="plotly_dark"
+        if df_historico is not None and not df_historico.empty:
+            fig_linea = px.line(
+                df_historico,
+                x='Fecha',
+                y='Precio',
+                labels={'Fecha': 'Línea Temporal', 'Precio': 'Valor de Cierre (USD)'},
+                template="plotly_dark"
                 )
-                fig_linea.update_traces(line_color='#00FFCC', line_width=2)
-                fig_linea.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)', 
-                    plot_bgcolor='rgba(0,0,0,0)', 
-                    hovermode="x unified"
-                )
-                    st.plotly_chart(fig_linea, use_container_width=True)
+            fig_linea.update_traces(line_color='#00FFCC', line_width=2)
+            fig_linea.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                hovermode="x unified"
+            )
+                st.plotly_chart(fig_linea, use_container_width=True)
 
         # PESTAÑA C: INGENIERÍA DE PROMPTS E IA COGNITIVA
         with tab_ia:
