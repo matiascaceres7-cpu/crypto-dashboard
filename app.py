@@ -16,6 +16,15 @@ ai_client = genai.Client(api_key=api_key_gemini)
  
 # Llamada del backend
 from coingecko_api import obtener_top_criptos, obtener_historico_activo, obtener_noticias_mercado
+# --- OPTIMIZACIÓN DE CACHÉ ---
+# Esto evita consultar a CoinGecko cada vez que envías un mensaje en el chat
+@st.cache_data(ttl=300) # Guarda los datos por 300 segundos (5 minutos)
+def get_top_criptos_cached():
+    return obtener_top_criptos()
+
+@st.cache_data(ttl=600) # Las noticias cambian menos, las guardamos 10 minutos
+def get_noticias_cached():
+    return obtener_noticias_mercado()
  
 # ── FUNCIÓN CENTRALIZADA PARA LLAMADAS A GEMINI ───────────────────────────────
 def llamar_gemini(prompt: str, system_instruction: str = None) -> str | None:
@@ -66,7 +75,7 @@ st.markdown(
         padding-right: 3rem !important;
     }
  
-    /* 3. INPUTS OSCUROS */
+    /* 3. INPUTS OSCUROS Y CHAT */
     div[data-testid="stSelectbox"] [data-baseweb="select"],
     div[data-testid="stSelectbox"] [data-baseweb="select"] > div,
     div[data-testid="stNumberInput"] > div,
@@ -75,11 +84,25 @@ st.markdown(
         color: #FFFFFF !important;
         border: 1px solid #374151 !important;
         border-radius: 6px !important;
+    } /* <--- ¡OJO! En tu código faltaba esta llave de cierre */
+ 
+    /* Input de texto clásico */
     div[data-testid="stTextInput"] input {
         color: #000000 !important;
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
     }
+
+    /* NUEVO: Input del Chat Nativo (Para que la letra sea negra) */
+    div[data-testid="stChatInput"] textarea {
+        color: #000000 !important;
+        -webkit-text-fill-color: #000000 !important; 
+    }
+    div[data-testid="stChatInput"] {
+        background-color: #FFFFFF !important;
+    }
+ 
+    /* Resto de los iconos de los inputs */
     div[data-testid="stSelectbox"] svg, div[data-testid="stSelectbox"] span,
     div[data-testid="stSelectbox"] div, div[data-testid="stNumberInput"] button,
     div[data-testid="stNumberInput"] svg {
@@ -169,6 +192,7 @@ with st.sidebar:
     """)
     st.write("---")
     if st.button("Sincronizar Datos de Mercado", use_container_width=True):
+        st.cache_data.clear()
         st.rerun()
  
 # ── CABECERA PRINCIPAL ────────────────────────────────────────────────────────
@@ -181,7 +205,7 @@ st.write("---")
  
 # ── CARGA DE DATOS ────────────────────────────────────────────────────────────
 with st.spinner("Estableciendo conexión con los servidores de datos..."):
-    df = obtener_top_criptos()
+    df = get_top_criptos_cached()
  
 if df is not None and not df.empty:
  
@@ -201,7 +225,7 @@ if df is not None and not df.empty:
     st.write("---")
  
     with st.spinner("Sincronizando flujo de prensa internacional..."):
-        lista_noticias = obtener_noticias_mercado()
+        lista_noticias = get_noticias_cached()
  
     col_analitica, col_prensa = st.columns([0.7, 0.3])
  
