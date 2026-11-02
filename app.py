@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from google import genai
 
 # Configuración general de la página
-st.set_page_config(page_title="Crypto Dashboard", page_icon="₿", layout="wide")
+st.set_page_config(page_title="NovaCrypto Command Center", page_icon="₿", layout="wide")
 
 # Carga global de variables de entorno
 load_dotenv()
@@ -314,6 +314,42 @@ st.markdown(
         margin-bottom: 0.4rem;
     }
 
+    .signal-card {
+        background: linear-gradient(180deg, rgba(15,23,42,0.92), rgba(11,23,37,0.9));
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 1rem 1.1rem;
+        box-shadow: var(--shadow);
+        height: 100%;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .signal-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(56,189,248,0.25);
+    }
+
+    .signal-title {
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 0.6rem;
+    }
+
+    .signal-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        letter-spacing: -0.05em;
+        margin: 0;
+    }
+
+    .signal-sub {
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-top: 0.45rem;
+    }
+
     .chat-user {
         background: linear-gradient(135deg, rgba(56,189,248,0.18), rgba(94,234,212,0.12));
         color: var(--text);
@@ -387,8 +423,8 @@ with st.sidebar:
 
 # ── CABECERA PRINCIPAL ─────────────────────────────────────────────────────────
 st.markdown('<div class="top-badge">Live market</div>', unsafe_allow_html=True)
-st.markdown('<div class="page-title">Crypto Dashboard</div>', unsafe_allow_html=True)
-st.markdown('<div class="page-subtitle">Monitoreo inteligente de activos digitales, análisis técnico y gestión de cartera.</div>', unsafe_allow_html=True)
+st.markdown('<div class="page-title">NovaCrypto Command Center</div>', unsafe_allow_html=True)
+st.markdown('<div class="page-subtitle">Más que un dashboard: un centro operativo para análisis, señales y decisiones rápidas.</div>', unsafe_allow_html=True)
 
 hero = st.container()
 with hero:
@@ -396,10 +432,10 @@ with hero:
     col_hero_1, col_hero_2 = st.columns([2, 1])
     with col_hero_1:
         st.markdown('<div class="small-label">Resumen del mercado</div>', unsafe_allow_html=True)
-        st.markdown("Tendencias globales, análisis comparativo y soporte de IA para decisiones más rápidas y fundamentadas.")
+        st.markdown("Tendencias globales, análisis comparativo, señales de momentum y soporte de IA para decisiones más rápidas y fundamentadas.")
     with col_hero_2:
         st.markdown('<div class="small-label">Estado</div>', unsafe_allow_html=True)
-        st.markdown('<div class="status-pill">Datos en vivo</div>', unsafe_allow_html=True)
+        st.markdown('<div class="status-pill">Operativo</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<hr class="divider">', unsafe_allow_html=True)
@@ -409,6 +445,60 @@ with st.spinner("Estableciendo conexión con los servidores de datos..."):
     df = get_top_criptos_cached()
 
 if df is not None and not df.empty:
+    # Market pulse / command cards
+    market_top = df.sort_values('price_change_percentage_24h', ascending=False).head(1).iloc[0]
+    market_bottom = df.sort_values('price_change_percentage_24h', ascending=True).head(1).iloc[0]
+    avg_move = df['price_change_percentage_24h'].mean()
+    total_market_cap = df['market_cap'].sum()
+
+    col_sig1, col_sig2, col_sig3, col_sig4 = st.columns(4)
+    with col_sig1:
+        st.markdown(
+            f"""
+            <div class="signal-card">
+                <div class="signal-title">Top mover</div>
+                <div class="signal-value" style="color:#5eead4;">{market_top['name']}</div>
+                <div class="signal-sub">+{market_top['price_change_percentage_24h']:.2f}% en 24h</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with col_sig2:
+        st.markdown(
+            f"""
+            <div class="signal-card">
+                <div class="signal-title">Mayor presión</div>
+                <div class="signal-value" style="color:#f87171;">{market_bottom['name']}</div>
+                <div class="signal-sub">{market_bottom['price_change_percentage_24h']:.2f}% en 24h</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with col_sig3:
+        st.markdown(
+            f"""
+            <div class="signal-card">
+                <div class="signal-title">Promedio del mercado</div>
+                <div class="signal-value" style="color:#38bdf8;">{avg_move:.2f}%</div>
+                <div class="signal-sub">Movimiento medio diario</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with col_sig4:
+        st.markdown(
+            f"""
+            <div class="signal-card">
+                <div class="signal-title">Capital total</div>
+                <div class="signal-value" style="color:#fbbf24;">${total_market_cap:,.0f}</div>
+                <div class="signal-sub">Capitalización de mercado</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.write("---")
+
     col1, col2, col3 = st.columns(3)
     btc_data = df[df['symbol'].str.lower() == 'btc']
     eth_data = df[df['symbol'].str.lower() == 'eth']
