@@ -43,6 +43,24 @@ def llamar_gemini(prompt: str, system_instruction: str = None) -> str | None:
             st.error(f"Error en la API de Inteligencia Artificial: {e}")
         return None
 
+# ── TEMA VISUAL Y AYUDAS PLOTLY ───────────────────────────────────────────────
+PLOTLY_THEME = {
+    "template": "plotly_dark",
+    "paper_bgcolor": "rgba(0,0,0,0)",
+    "plot_bgcolor": "rgba(0,0,0,0)",
+    "font": {"family": "Inter, Arial, sans-serif", "color": "#E2E8F0"},
+    "hoverlabel": {"bgcolor": "#0F172A", "font_size": 12, "font_family": "Inter, Arial, sans-serif"},
+    "legend": {"bgcolor": "rgba(15, 23, 42, 0.55)", "bordercolor": "rgba(148,163,184,0.2)", "borderwidth": 1},
+    "margin": dict(l=10, r=10, t=30, b=10),
+}
+
+
+def configure_plotly(fig):
+    fig.update_layout(**PLOTLY_THEME)
+    fig.update_xaxes(showgrid=False, linecolor="rgba(148,163,184,0.35)", tickfont={"color": "#CBD5E1"})
+    fig.update_yaxes(showgrid=True, gridcolor="rgba(148,163,184,0.12)", linecolor="rgba(148,163,184,0.35)", tickfont={"color": "#CBD5E1"})
+    return fig
+
 # ── ESTILOS CSS ───────────────────────────────────────────────────────────────
 st.markdown(
     """
@@ -93,6 +111,43 @@ st.markdown(
     [data-testid="stSidebar"] h3,
     [data-testid="stSidebar"] span {
         color: var(--text) !important;
+    }
+
+    .brand-card {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+        background: linear-gradient(135deg, rgba(94,234,212,0.12), rgba(56,189,248,0.10));
+        border: 1px solid rgba(94,234,212,0.2);
+        border-radius: 18px;
+        padding: 0.8rem 0.9rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 10px 25px rgba(14, 116, 144, 0.18);
+    }
+
+    .brand-mark {
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #5eead4, #38bdf8);
+        box-shadow: 0 8px 20px rgba(94,234,212,0.35);
+    }
+
+    .brand-name {
+        font-size: 1.02rem;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        color: #F8FAFC !important;
+    }
+
+    .brand-tag {
+        font-size: 0.68rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted) !important;
     }
 
     .stMetric {
@@ -152,17 +207,37 @@ st.markdown(
         box-shadow: 0 10px 20px rgba(56, 189, 248, 0.25);
     }
 
+    .stTabs [role="tablist"] {
+        gap: 0.6rem;
+        background: rgba(15, 23, 42, 0.35);
+        border: 1px solid var(--border);
+        padding: 0.45rem;
+        border-radius: 18px;
+        margin-bottom: 1rem;
+    }
+
     button[data-baseweb="tab"] {
         color: var(--muted) !important;
-        font-weight: 600 !important;
-        border-radius: 10px 10px 0 0;
+        font-weight: 700 !important;
+        border-radius: 12px !important;
         background: transparent !important;
+        border: 1px solid transparent !important;
+        transition: all 0.2s ease;
+        padding: 0.75rem 1.05rem !important;
+    }
+
+    button[data-baseweb="tab"]:hover {
+        color: var(--text) !important;
+        border-color: rgba(94,234,212,0.18) !important;
+        background: rgba(148,163,184,0.07) !important;
+        transform: translateY(-1px);
     }
 
     button[data-baseweb="tab"][aria-selected="true"] {
-        color: var(--text) !important;
-        border-bottom: 2px solid var(--primary) !important;
-        background: rgba(94, 234, 212, 0.08) !important;
+        color: #03161d !important;
+        border-color: transparent !important;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%) !important;
+        box-shadow: 0 10px 18px rgba(56, 189, 248, 0.22);
     }
 
     .block-container {
@@ -273,6 +348,24 @@ if "chat_historia" not in st.session_state:
 
 # ── PANEL LATERAL ─────────────────────────────────────────────────────────────
 with st.sidebar:
+    st.markdown(
+        """
+        <div class="brand-card">
+            <div class="brand-mark">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2.5C7.31 2.5 3.5 6.31 3.5 11C3.5 15.69 7.31 19.5 12 19.5C16.69 19.5 20.5 15.69 20.5 11C20.5 6.31 16.69 2.5 12 2.5ZM12 17.5C8.41 17.5 5.5 14.59 5.5 11C5.5 7.41 8.41 4.5 12 4.5C15.59 4.5 18.5 7.41 18.5 11C18.5 14.59 15.59 17.5 12 17.5Z" fill="#041A2A"/>
+                    <path d="M13.1 7.1H10.9V10.15H8.02V12.25H10.9V15.8H13.1V12.25H15.98V10.15H13.1V7.1Z" fill="#041A2A"/>
+                </svg>
+            </div>
+            <div>
+                <div class="brand-name">NovaCrypto</div>
+                <div class="brand-tag">Market Intelligence</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     try:
         st.image("logo_udp.png", use_container_width=True)
     except Exception:
@@ -332,13 +425,13 @@ if df is not None and not df.empty:
     st.write("---")
 
     tab_datos, tab_analisis, tab_tecnico, tab_ia, tab_chat, tab_comparador, tab_simulador = st.tabs([
-        "Resumen",
-        "Volatilidad",
-        "Técnico",
-        "Consultoría IA",
-        "Chat",
-        "Comparador",
-        "Portafolio"
+        "📈 Resumen",
+        "📊 Volatilidad",
+        "📉 Técnico",
+        "🤖 IA",
+        "💬 Chat",
+        "⚖️ Comparador",
+        "🧮 Portafolio"
     ])
 
     # ── TAB A: VISUALIZACIÓN DE DATOS ─────────────────────────────────────
@@ -390,10 +483,26 @@ if df is not None and not df.empty:
             y='name',
             orientation='h',
             labels={'price_change_percentage_24h': 'Variación diaria (%)', 'name': 'Activo'},
-            template='plotly_dark'
+            template='plotly_dark',
+            color_discrete_sequence=['#5eead4'] * len(df_filtrado),
+            text_auto='.2f'
         )
-        fig_barras.update_traces(marker_color=color_secuencia)
-        fig_barras.update_layout(margin=dict(l=20, r=20, t=10, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        fig_barras.update_traces(
+            marker_line_color='rgba(255,255,255,0.15)',
+            marker_line_width=1,
+            textposition='outside',
+            hovertemplate='<b>%{y}</b><br>Variación: %{x:.2f}%<extra></extra>'
+        )
+        fig_barras.update_layout(
+            title='Rendimiento del mercado por activo',
+            xaxis_title='Variación diaria (%)',
+            yaxis_title='',
+            bargap=0.35,
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font={'color': '#E2E8F0'},
+            margin=dict(l=15, r=15, t=40, b=15),
+        )
         st.plotly_chart(fig_barras, use_container_width=True)
 
         st.write("---")
@@ -404,11 +513,18 @@ if df is not None and not df.empty:
                 path=['name'],
                 values='market_cap',
                 color='price_change_percentage_24h',
-                color_continuous_scale='RdYlGn',
+                color_continuous_scale='Viridis',
                 color_continuous_midpoint=0,
                 template='plotly_dark'
             )
-            fig_treemap.update_layout(margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig_treemap.update_layout(
+                title='Capitalización y variación diaria',
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=10, r=10, t=35, b=10),
+                font={'color': '#E2E8F0'},
+            )
+            fig_treemap.update_traces(textinfo='label+percent entry')
             st.plotly_chart(fig_treemap, use_container_width=True)
         except Exception as e:
             st.error(f"Error estructural en la generación del mapa: {e}")
@@ -423,14 +539,28 @@ if df is not None and not df.empty:
             df_historico = obtener_historico_activo(coin_id=id_seleccionado, days=30)
 
         if df_historico is not None and not df_historico.empty:
-            fig_linea = px.line(
-                df_historico,
-                x='Fecha',
-                y='Precio',
-                labels={'Fecha': 'Línea temporal', 'Precio': 'Valor de cierre (USD)'},
-                template='plotly_dark'
+            fig_linea = go.Figure()
+            fig_linea.add_trace(go.Scatter(
+                x=df_historico['Fecha'],
+                y=df_historico['Precio'],
+                mode='lines',
+                line=dict(color='#5eead4', width=3),
+                hovertemplate='<b>%{x|%d %b}</b><br>Precio: $%{y:,.2f}<extra></extra>'
+            ))
+            fig_linea.add_area(
+                x=df_historico['Fecha'],
+                y=df_historico['Precio'],
+                mode='lines',
+                line=dict(color='#5eead4', width=0),
+                fillcolor='rgba(94,234,212,0.15)',
             )
-            fig_linea.update_traces(line_color='#5eead4', line_width=2)
+            fig_linea = configure_plotly(fig_linea)
+            fig_linea.update_layout(
+                title=f'{nombre_seleccionado} — Serie histórica',
+                xaxis_title='Fecha',
+                yaxis_title='Precio (USD)',
+                hovermode='x unified',
+            )
             st.plotly_chart(fig_linea, use_container_width=True)
 
     # ── TAB C: ANÁLISIS TÉCNICO ───────────────────────────────────
@@ -457,17 +587,31 @@ if df is not None and not df.empty:
             df_hist_t['RSI'] = 100 - (100 / (1 + rs))
 
             fig_ma = go.Figure()
-            fig_ma.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['Precio'], name='Precio', line=dict(color='#5eead4', width=2)))
-            fig_ma.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['MA7'], name='MA 7 días', line=dict(color='#fbbf24', width=1.5, dash='dot')))
-            fig_ma.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['MA30'], name='MA 30 días', line=dict(color='#f87171', width=1.5, dash='dash')))
-            fig_ma.update_layout(title=f"Precio y medias móviles — {activo_tecnico}", template='plotly_dark', hovermode='x unified', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig_ma.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['Precio'], name='Precio', line=dict(color='#5eead4', width=2.5), hovertemplate='%{x|%d %b}<br>Precio: $%{y:,.2f}<extra></extra>'))
+            fig_ma.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['MA7'], name='MA 7 días', line=dict(color='#fbbf24', width=2), hovertemplate='%{x|%d %b}<br>MA7: $%{y:,.2f}<extra></extra>'))
+            fig_ma.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['MA30'], name='MA 30 días', line=dict(color='#f87171', width=2), hovertemplate='%{x|%d %b}<br>MA30: $%{y:,.2f}<extra></extra>'))
+            fig_ma = configure_plotly(fig_ma)
+            fig_ma.update_layout(
+                title=f"Precio y medias móviles — {activo_tecnico}",
+                hovermode='x unified',
+                legend=dict(orientation='h', yanchor='bottom', y=1.08, xanchor='left', x=0),
+            )
             st.plotly_chart(fig_ma, use_container_width=True)
 
             fig_rsi = go.Figure()
-            fig_rsi.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['RSI'], name='RSI', line=dict(color='#38bdf8', width=2), fill='tozeroy', fillcolor='rgba(56,189,248,0.08)'))
-            fig_rsi.add_hline(y=70, line_dash='dash', line_color='red', annotation_text='Sobrecompra (70)')
-            fig_rsi.add_hline(y=30, line_dash='dash', line_color='green', annotation_text='Sobreventa (30)')
-            fig_rsi.update_layout(title='RSI', yaxis=dict(range=[0, 100]), template='plotly_dark', hovermode='x unified', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig_rsi.add_trace(go.Scatter(
+                x=df_hist_t['Fecha'], y=df_hist_t['RSI'], name='RSI',
+                line=dict(color='#38bdf8', width=2.5), fill='tozeroy', fillcolor='rgba(56,189,248,0.08)',
+                hovertemplate='%{x|%d %b}<br>RSI: %{y:.1f}<extra></extra>'
+            ))
+            fig_rsi.add_hline(y=70, line_dash='dash', line_color='rgba(248,113,113,0.9)', annotation_text='Sobrecompra (70)')
+            fig_rsi.add_hline(y=30, line_dash='dash', line_color='rgba(52,211,153,0.9)', annotation_text='Sobreventa (30)')
+            fig_rsi = configure_plotly(fig_rsi)
+            fig_rsi.update_layout(
+                title='Índice de Fuerza Relativa (RSI)',
+                yaxis=dict(range=[0, 100]),
+                hovermode='x unified',
+            )
             st.plotly_chart(fig_rsi, use_container_width=True)
 
             st.write("---")
@@ -635,10 +779,16 @@ if df is not None and not df.empty:
                 df_b['Normalizado'] = (df_b['Precio'] / df_b['Precio'].iloc[0]) * 100
 
                 fig_comp = go.Figure()
-                fig_comp.add_trace(go.Scatter(x=df_a['Fecha'], y=df_a['Normalizado'], name=cripto_a, line=dict(color='#5eead4', width=2)))
-                fig_comp.add_trace(go.Scatter(x=df_b['Fecha'], y=df_b['Normalizado'], name=cripto_b, line=dict(color='#f97316', width=2)))
-                fig_comp.add_hline(y=100, line_dash='dot', line_color='gray', annotation_text='Base 100')
-                fig_comp.update_layout(template='plotly_dark', hovermode='x unified', yaxis_title='Rendimiento relativo (%)', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                fig_comp.add_trace(go.Scatter(x=df_a['Fecha'], y=df_a['Normalizado'], name=cripto_a, line=dict(color='#5eead4', width=2.5), hovertemplate='%{x|%d %b}<br>%{y:.2f}<extra></extra>'))
+                fig_comp.add_trace(go.Scatter(x=df_b['Fecha'], y=df_b['Normalizado'], name=cripto_b, line=dict(color='#f97316', width=2.5), hovertemplate='%{x|%d %b}<br>%{y:.2f}<extra></extra>'))
+                fig_comp.add_hline(y=100, line_dash='dot', line_color='rgba(148,163,184,0.8)', annotation_text='Base 100')
+                fig_comp = configure_plotly(fig_comp)
+                fig_comp.update_layout(
+                    title='Comparación de rendimiento relativo',
+                    hovermode='x unified',
+                    yaxis_title='Rendimiento relativo (%)',
+                    legend=dict(orientation='h', yanchor='bottom', y=1.12, xanchor='left', x=0),
+                )
                 st.plotly_chart(fig_comp, use_container_width=True)
 
                 st.write("---")
@@ -748,6 +898,8 @@ if df is not None and not df.empty:
                 }])
                 df_pie = pd.concat([df_port, fila_cash], ignore_index=True)
                 fig_pie = px.pie(df_pie, values='Valorización (USD)', names='Activo', template='plotly_dark')
+                fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=10, r=10, t=10, b=10), font={'color': '#E2E8F0'})
+                fig_pie.update_traces(textinfo='percent+label', pull=[0.02 if i == 0 else 0 for i in range(len(df_pie))], marker=dict(colors=['#5eead4', '#38bdf8', '#fbbf24', '#f97316', '#f87171']))
                 st.plotly_chart(fig_pie, use_container_width=True)
         else:
             st.info("La cartera se encuentra vacía. Usa el panel superior para comprar activos.")
