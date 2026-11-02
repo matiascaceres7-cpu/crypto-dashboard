@@ -66,40 +66,45 @@ st.markdown(
     """
     <style>
     :root {
-        --bg: #071421;
-        --bg-alt: #0d1d2d;
+        --bg: #061622;
+        --bg-2: #0a1c2d;
+        --bg-3: #0d2540;
         --panel: rgba(15, 23, 42, 0.85);
-        --panel-soft: rgba(19, 33, 49, 0.9);
-        --sidebar: #0b1725;
-        --border: rgba(148, 163, 184, 0.18);
-        --primary: #5eead4;
-        --primary-2: #38bdf8;
-        --accent: #fbbf24;
-        --accent-2: #f97316;
-        --text: #e5eefb;
-        --muted: #9fb5d1;
-        --green: #34d399;
-        --red: #f87171;
-        --shadow: 0 12px 32px rgba(2, 8, 23, 0.35);
+        --panel-soft: rgba(12, 23, 35, 0.9);
+        --panel-strong: rgba(9, 18, 30, 0.98);
+        --border: rgba(148, 163, 184, 0.16);
+        --primary: #56f0d5;
+        --primary-2: #48b9ff;
+        --accent: #f7c35d;
+        --accent-2: #fb7f6b;
+        --text: #edf6ff;
+        --muted: #9cb7d4;
+        --green: #35d39e;
+        --red: #fe6b6b;
+        --shadow: 0 18px 40px rgba(3, 9, 18, 0.35);
     }
 
     html, body, [data-testid="stAppViewContainer"] {
-        background: linear-gradient(180deg, #071421 0%, #0b1626 100%);
+        background:
+            radial-gradient(circle at top left, rgba(69, 180, 255, 0.16), transparent 25%),
+            radial-gradient(circle at top right, rgba(86, 240, 213, 0.12), transparent 26%),
+            linear-gradient(180deg, var(--bg) 0%, #081a2a 100%);
         color: var(--text);
     }
 
     .stApp {
-        background: linear-gradient(180deg, #071421 0%, #0b1626 100%);
+        background: transparent;
         color: var(--text);
     }
 
     .main .block-container {
-        padding-top: 1.25rem !important;
-        padding-bottom: 1.5rem !important;
+        padding-top: 1rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 100% !important;
     }
 
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #071824 0%, #0b1725 100%) !important;
+        background: linear-gradient(180deg, rgba(5, 16, 28, 0.96), rgba(9, 24, 36, 0.96)) !important;
         border-right: 1px solid var(--border);
         box-shadow: inset -1px 0 0 rgba(255,255,255,0.02);
     }
@@ -116,13 +121,13 @@ st.markdown(
     .brand-card {
         display: flex;
         align-items: center;
-        gap: 0.9rem;
-        background: linear-gradient(135deg, rgba(94,234,212,0.12), rgba(56,189,248,0.10));
-        border: 1px solid rgba(94,234,212,0.2);
+        gap: 0.85rem;
+        background: linear-gradient(135deg, rgba(86,240,213,0.12), rgba(72,185,255,0.10));
+        border: 1px solid rgba(86,240,213,0.20);
         border-radius: 18px;
         padding: 0.8rem 0.9rem;
         margin-bottom: 1rem;
-        box-shadow: 0 10px 25px rgba(14, 116, 144, 0.18);
+        box-shadow: 0 0 0 1px rgba(86,240,213,0.08), 0 18px 32px rgba(14,108,164,0.15);
     }
 
     .brand-mark {
@@ -132,50 +137,51 @@ st.markdown(
         border-radius: 14px;
         display: grid;
         place-items: center;
-        background: linear-gradient(135deg, #5eead4, #38bdf8);
-        box-shadow: 0 8px 20px rgba(94,234,212,0.35);
+        background: linear-gradient(135deg, var(--primary), var(--primary-2));
+        box-shadow: 0 10px 24px rgba(72,185,255,0.28);
     }
 
     .brand-name {
-        font-size: 1.02rem;
+        font-size: 1.04rem;
         font-weight: 800;
         letter-spacing: -0.04em;
-        color: #F8FAFC !important;
+        color: #F3FBFF !important;
     }
 
     .brand-tag {
-        font-size: 0.68rem;
-        letter-spacing: 0.12em;
+        font-size: 0.67rem;
+        letter-spacing: 0.13em;
         text-transform: uppercase;
         color: var(--muted) !important;
     }
 
     .stMetric {
-        background: linear-gradient(180deg, rgba(18, 31, 47, 0.95), rgba(12, 23, 35, 0.92));
+        background: linear-gradient(180deg, rgba(14, 25, 37, 0.96), rgba(10, 19, 30, 0.92));
         border: 1px solid var(--border);
         border-radius: 18px !important;
-        padding: 1.1rem 1.1rem 0.9rem !important;
+        padding: 1.05rem 1.1rem 0.9rem !important;
         box-shadow: var(--shadow);
         backdrop-filter: blur(8px);
     }
 
     .stMetric label {
         color: var(--muted) !important;
-        font-size: 0.7rem !important;
+        font-size: 0.68rem !important;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        font-weight: 600;
+        font-weight: 700;
     }
 
     .stMetric [data-testid="stMetricValue"] {
         color: var(--text) !important;
-        font-size: 1.8rem !important;
-        font-weight: 700 !important;
+        font-size: 1.7rem !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.05em;
     }
 
     .stMetric [data-testid="stMetricDelta"] {
         color: var(--green) !important;
-        font-weight: 600;
+        font-weight: 700;
     }
 
     div[data-testid="stSelectbox"] [data-baseweb="select"],
@@ -183,7 +189,7 @@ st.markdown(
     div[data-testid="stTextInput"] input,
     div[data-testid="stChatInput"] textarea,
     div[data-testid="stDateInput"] > div {
-        background: rgba(15, 23, 42, 0.9) !important;
+        background: rgba(12, 24, 36, 0.9) !important;
         color: var(--text) !important;
         border: 1px solid var(--border) !important;
         border-radius: 12px !important;
@@ -200,20 +206,21 @@ st.markdown(
     button[kind="primary"],
     [data-testid="stBaseButton-primary"] {
         background: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%);
-        color: #03161d !important;
+        color: #041822 !important;
         border: none !important;
         border-radius: 12px !important;
-        font-weight: 700 !important;
-        box-shadow: 0 10px 20px rgba(56, 189, 248, 0.25);
+        font-weight: 800 !important;
+        box-shadow: 0 10px 24px rgba(72,185,255,0.24);
     }
 
     .stTabs [role="tablist"] {
-        gap: 0.6rem;
-        background: rgba(15, 23, 42, 0.35);
+        gap: 0.5rem;
+        background: rgba(15, 23, 42, 0.4);
         border: 1px solid var(--border);
         padding: 0.45rem;
         border-radius: 18px;
         margin-bottom: 1rem;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
     }
 
     button[data-baseweb="tab"] {
@@ -223,125 +230,173 @@ st.markdown(
         background: transparent !important;
         border: 1px solid transparent !important;
         transition: all 0.2s ease;
-        padding: 0.75rem 1.05rem !important;
+        padding: 0.72rem 1rem !important;
     }
 
     button[data-baseweb="tab"]:hover {
         color: var(--text) !important;
-        border-color: rgba(94,234,212,0.18) !important;
-        background: rgba(148,163,184,0.07) !important;
-        transform: translateY(-1px);
+        border-color: rgba(86,240,213,0.18) !important;
+        background: rgba(148,163,184,0.06) !important;
     }
 
     button[data-baseweb="tab"][aria-selected="true"] {
-        color: #03161d !important;
+        color: #041822 !important;
         border-color: transparent !important;
         background: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%) !important;
-        box-shadow: 0 10px 18px rgba(56, 189, 248, 0.22);
+        box-shadow: 0 12px 20px rgba(72,185,255,0.18);
     }
 
-    .block-container {
-        max-width: 100% !important;
+    .ops-shell {
+        width: 100%;
+        padding: 0.15rem 0 0.5rem;
     }
 
-    .glass-panel {
-        background: linear-gradient(180deg, rgba(14, 22, 33, 0.96), rgba(13, 24, 35, 0.92));
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        padding: 1.2rem;
-        box-shadow: var(--shadow);
+    .ops-header {
+        position: relative;
+        padding: 0.25rem 0 0.9rem;
     }
 
-    .top-badge {
-        display: inline-block;
-        padding: 0.45rem 0.8rem;
+    .live-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.8rem;
+        padding: 0.38rem 0.72rem;
         border-radius: 999px;
-        background: rgba(94, 234, 212, 0.08);
-        border: 1px solid rgba(94, 234, 212, 0.32);
+        background: rgba(86,240,213,0.08);
+        border: 1px solid rgba(86,240,213,0.22);
         color: var(--primary) !important;
-        font-size: 0.72rem;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        font-weight: 700;
+        font-size: 0.68rem;
+        font-weight: 800;
     }
 
-    .page-title {
-        font-size: 2.5rem !important;
-        font-weight: 800 !important;
-        letter-spacing: -0.04em;
-        color: var(--text) !important;
-        margin-top: 0.55rem !important;
-        margin-bottom: 0.3rem !important;
+    .live-pill::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 12px rgba(53,211,158,0.9);
     }
 
-    .page-subtitle {
-        color: var(--muted) !important;
-        font-size: 1rem;
-        margin-bottom: 1.2rem !important;
+    .header-row {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
     }
 
-    .divider {
-        height: 1px;
-        background: linear-gradient(90deg, rgba(94,234,212,0.5), rgba(148,163,184,0.15));
-        border: none;
-        margin: 1rem 0;
+    .title-ops {
+        margin: 0;
+        font-size: clamp(2.2rem, 3vw, 3.1rem);
+        line-height: 1.08;
+        letter-spacing: -0.06em;
+        color: #F5FAFF;
+        font-weight: 900;
     }
 
-    .status-pill {
-        display: inline-block;
-        padding: 0.4rem 0.7rem;
-        background: rgba(52, 211, 153, 0.12);
-        border: 1px solid rgba(52, 211, 153, 0.28);
+    .status-pill-ops {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.52rem 0.9rem;
         border-radius: 999px;
+        background: rgba(53,211,158,0.14);
+        border: 1px solid rgba(53,211,158,0.28);
         color: var(--green) !important;
-        font-size: 0.72rem;
+        font-size: 0.78rem;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .status-pill-ops::before {
+        content: "";
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 10px rgba(53,211,158,0.8);
+    }
+
+    .signal-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        width: 100%;
+        border: 1px solid rgba(86,240,213,0.18);
+        background: linear-gradient(135deg, rgba(13, 34, 52, 0.85), rgba(10, 26, 39, 0.8));
+        border-radius: 24px;
+        padding: 1.15rem 1.3rem;
+        min-height: 82px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 10px 26px rgba(8, 23, 33, 0.2);
+    }
+
+    .signal-banner .banner-text {
+        color: #dfeeff;
+        font-size: clamp(1.05rem, 1.2vw, 1.3rem);
+        line-height: 1.4;
+        margin: 0;
         font-weight: 600;
+        letter-spacing: -0.02em;
     }
 
-    .hero-panel {
-        background: linear-gradient(135deg, rgba(15, 118, 110, 0.15), rgba(14, 165, 233, 0.10));
-        border: 1px solid rgba(94, 234, 212, 0.14);
-        border-radius: 22px;
-        padding: 1.1rem 1.2rem;
-        box-shadow: var(--shadow);
+    .signal-banner .banner-side {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 185px;
+        padding: 0.75rem 1rem;
+        border-radius: 999px;
+        background: rgba(53,211,158,0.12);
+        border: 1px solid rgba(53,211,158,0.35);
+        color: var(--green) !important;
+        font-weight: 800;
+        font-size: 0.9rem;
     }
 
-    .small-label {
-        color: var(--muted) !important;
-        font-size: 0.72rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        margin-bottom: 0.4rem;
+    .signal-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(180px, 1fr));
+        gap: 1rem;
+        margin: 1.1rem 0 0.7rem;
     }
 
     .signal-card {
-        background: linear-gradient(180deg, rgba(15,23,42,0.92), rgba(11,23,37,0.9));
+        background: linear-gradient(180deg, rgba(12, 23, 35, 0.96), rgba(9, 21, 32, 0.92));
         border: 1px solid var(--border);
         border-radius: 18px;
         padding: 1rem 1.1rem;
         box-shadow: var(--shadow);
         height: 100%;
-        transition: transform 0.2s ease, border-color 0.2s ease;
+        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        min-height: 132px;
     }
 
     .signal-card:hover {
         transform: translateY(-2px);
-        border-color: rgba(56,189,248,0.25);
+        border-color: rgba(72,185,255,0.26);
+        box-shadow: 0 14px 26px rgba(9, 24, 36, 0.25);
     }
 
     .signal-title {
         color: var(--muted);
-        font-size: 0.72rem;
-        letter-spacing: 0.08em;
+        font-size: 0.68rem;
+        letter-spacing: 0.1em;
         text-transform: uppercase;
         margin-bottom: 0.6rem;
+        font-weight: 700;
     }
 
     .signal-value {
-        font-size: 1.8rem;
+        font-size: clamp(1.15rem, 2vw, 1.8rem);
         font-weight: 800;
         letter-spacing: -0.05em;
         margin: 0;
+        line-height: 1.15;
     }
 
     .signal-sub {
@@ -350,22 +405,73 @@ st.markdown(
         margin-top: 0.45rem;
     }
 
-    .chat-user {
-        background: linear-gradient(135deg, rgba(56,189,248,0.18), rgba(94,234,212,0.12));
-        color: var(--text);
-        border: 1px solid rgba(56,189,248,0.18);
-        padding: 10px 14px;
-        border-radius: 14px 14px 2px 14px;
-        margin: 8px 0;
+    .divider {
+        height: 1px;
+        background: linear-gradient(90deg, rgba(86,240,213,0.4), rgba(148,163,184,0.1));
+        border: none;
+        margin: 1rem 0 1.1rem;
     }
 
-    .chat-ai {
-        background: rgba(148, 163, 184, 0.08);
-        color: var(--text);
-        border: 1px solid rgba(148,163,184,0.18);
-        padding: 10px 14px;
-        border-radius: 14px 14px 14px 2px;
-        margin: 8px 0;
+    .small-label {
+        color: var(--muted) !important;
+        font-size: 0.7rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 0.45rem;
+        font-weight: 800;
+    }
+
+    .glass-panel {
+        background: linear-gradient(180deg, rgba(13, 23, 35, 0.94), rgba(9, 18, 31, 0.92));
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 1.2rem;
+        box-shadow: var(--shadow);
+    }
+
+    .hero-panel {
+        background: linear-gradient(135deg, rgba(13, 30, 44, 0.92), rgba(9, 18, 29, 0.9));
+        border: 1px solid rgba(86,240,213,0.14);
+        border-radius: 22px;
+        padding: 1.1rem 1.2rem;
+        box-shadow: var(--shadow);
+    }
+
+    .page-subtitle {
+        color: var(--muted) !important;
+        font-size: 1rem;
+        margin: 0.2rem 0 1.3rem !important;
+    }
+
+    .status-pill {
+        display: inline-block;
+        padding: 0.45rem 0.7rem;
+        border-radius: 999px;
+        background: rgba(53,211,158,0.10);
+        border: 1px solid rgba(53,211,158,0.28);
+        color: var(--green) !important;
+        font-size: 0.72rem;
+        font-weight: 700;
+    }
+
+    @media (max-width: 960px) {
+        .signal-row {
+            grid-template-columns: repeat(2, minmax(180px, 1fr));
+        }
+        .signal-banner {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .signal-banner .banner-side {
+            min-width: 0;
+            width: fit-content;
+        }
+    }
+
+    @media (max-width: 560px) {
+        .signal-row {
+            grid-template-columns: 1fr;
+        }
     }
     </style>
     """,
@@ -422,21 +528,18 @@ with st.sidebar:
         st.rerun()
 
 # ── CABECERA PRINCIPAL ───────────────────────────────────────────────────────
-st.markdown('<div class="top-badge">Live market</div>', unsafe_allow_html=True)
-st.markdown('<div class="page-title">NovaCrypto Command Center</div>', unsafe_allow_html=True)
-st.markdown('<div class="page-subtitle">Más que un dashboard: un centro operativo para análisis, señales y decisiones rápidas.</div>', unsafe_allow_html=True)
+st.markdown('<div class="ops-shell">', unsafe_allow_html=True)
+st.markdown('<div class="ops-header">', unsafe_allow_html=True)
+st.markdown('<div class="live-pill">Live market</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-row"><h1 class="title-ops">NovaCrypto Command Center</h1><div class="status-pill-ops">Operativo</div></div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
-hero = st.container()
-with hero:
-    st.markdown('<div class="hero-panel">', unsafe_allow_html=True)
-    col_hero_1, col_hero_2 = st.columns([2, 1])
-    with col_hero_1:
-        st.markdown('<div class="small-label">Resumen del mercado</div>', unsafe_allow_html=True)
-        st.markdown("Tendencias globales, análisis comparativo, señales de momentum y soporte de IA para decisiones más rápidas y fundamentadas.")
-    with col_hero_2:
-        st.markdown('<div class="small-label">Estado</div>', unsafe_allow_html=True)
-        st.markdown('<div class="status-pill">Operativo</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="signal-banner"><p class="banner-text">Más que un dashboard: un centro operativo para análisis, señales y decisiones rápidas.</p><div class="banner-side">Operativo</div></div>',
+    unsafe_allow_html=True,
+)
+
+st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
@@ -450,51 +553,28 @@ if df is not None and not df.empty:
     avg_move = df['price_change_percentage_24h'].mean()
     total_market_cap = df['market_cap'].sum()
 
-    col_sig1, col_sig2, col_sig3, col_sig4 = st.columns(4)
-    with col_sig1:
+    st.markdown('<div class="signal-row">', unsafe_allow_html=True)
+
+    signal_cards = [
+        ("Top mover", f"{market_top['name']}", f"+{market_top['price_change_percentage_24h']:.2f}% en 24h", "#5eead4"),
+        ("Mayor presión", f"{market_bottom['name']}", f"{market_bottom['price_change_percentage_24h']:.2f}% en 24h", "#f87171"),
+        ("Promedio del mercado", f"{avg_move:.2f}%", "Movimiento medio diario", "#38bdf8"),
+        ("Capital total", f"${total_market_cap:,.0f}", "Capitalización de mercado", "#fbbf24"),
+    ]
+
+    for title, value, sub, color in signal_cards:
         st.markdown(
             f"""
             <div class="signal-card">
-                <div class="signal-title">Top mover</div>
-                <div class="signal-value" style="color:#5eead4;">{market_top['name']}</div>
-                <div class="signal-sub">+{market_top['price_change_percentage_24h']:.2f}% en 24h</div>
+                <div class="signal-title">{title}</div>
+                <div class="signal-value" style="color:{color};">{value}</div>
+                <div class="signal-sub">{sub}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-    with col_sig2:
-        st.markdown(
-            f"""
-            <div class="signal-card">
-                <div class="signal-title">Mayor presión</div>
-                <div class="signal-value" style="color:#f87171;">{market_bottom['name']}</div>
-                <div class="signal-sub">{market_bottom['price_change_percentage_24h']:.2f}% en 24h</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with col_sig3:
-        st.markdown(
-            f"""
-            <div class="signal-card">
-                <div class="signal-title">Promedio del mercado</div>
-                <div class="signal-value" style="color:#38bdf8;">{avg_move:.2f}%</div>
-                <div class="signal-sub">Movimiento medio diario</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with col_sig4:
-        st.markdown(
-            f"""
-            <div class="signal-card">
-                <div class="signal-title">Capital total</div>
-                <div class="signal-value" style="color:#fbbf24;">${total_market_cap:,.0f}</div>
-                <div class="signal-sub">Capitalización de mercado</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
     st.write("---")
 
@@ -993,3 +1073,4 @@ if df is not None and not df.empty:
 
 else:
     st.error("Error crítico: No fue posible establecer comunicación con CoinGecko.")
+
