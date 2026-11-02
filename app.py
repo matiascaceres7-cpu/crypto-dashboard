@@ -7,6 +7,9 @@ from datetime import datetime
 from dotenv import load_dotenv
 from google import genai
 
+# Configuración general de la página
+st.set_page_config(page_title="Crypto Dashboard", page_icon="₿", layout="wide")
+
 # Carga global de variables de entorno
 load_dotenv()
 
@@ -45,25 +48,42 @@ st.markdown(
     """
     <style>
     :root {
-        --bg: #f3f6fb;
-        --panel: #ffffff;
-        --sidebar: #eef2f8;
-        --primary: #ff7a18;
-        --primary-soft: #fff1e7;
-        --dark: #111827;
-        --muted: #6b7280;
-        --border: #e5e7eb;
-        --success: #10b981;
-        --danger: #ef4444;
+        --bg: #071421;
+        --bg-alt: #0d1d2d;
+        --panel: rgba(15, 23, 42, 0.85);
+        --panel-soft: rgba(19, 33, 49, 0.9);
+        --sidebar: #0b1725;
+        --border: rgba(148, 163, 184, 0.18);
+        --primary: #5eead4;
+        --primary-2: #38bdf8;
+        --accent: #fbbf24;
+        --accent-2: #f97316;
+        --text: #e5eefb;
+        --muted: #9fb5d1;
+        --green: #34d399;
+        --red: #f87171;
+        --shadow: 0 12px 32px rgba(2, 8, 23, 0.35);
+    }
+
+    html, body, [data-testid="stAppViewContainer"] {
+        background: linear-gradient(180deg, #071421 0%, #0b1626 100%);
+        color: var(--text);
     }
 
     .stApp {
-        background: var(--bg);
+        background: linear-gradient(180deg, #071421 0%, #0b1626 100%);
+        color: var(--text);
+    }
+
+    .main .block-container {
+        padding-top: 1.25rem !important;
+        padding-bottom: 1.5rem !important;
     }
 
     [data-testid="stSidebar"] {
-        background: var(--sidebar) !important;
+        background: linear-gradient(180deg, #071824 0%, #0b1725 100%) !important;
         border-right: 1px solid var(--border);
+        box-shadow: inset -1px 0 0 rgba(255,255,255,0.02);
     }
 
     [data-testid="stSidebar"] .stMarkdown,
@@ -72,70 +92,166 @@ st.markdown(
     [data-testid="stSidebar"] h2,
     [data-testid="stSidebar"] h3,
     [data-testid="stSidebar"] span {
-        color: var(--dark) !important;
-    }
-
-    [data-testid="stMainBlockContainer"],
-    .block-container {
-        max-width: 100% !important;
-        padding-top: 1.5rem !important;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
+        color: var(--text) !important;
     }
 
     .stMetric {
-        background: var(--panel);
+        background: linear-gradient(180deg, rgba(18, 31, 47, 0.95), rgba(12, 23, 35, 0.92));
         border: 1px solid var(--border);
-        border-left: 4px solid var(--primary);
-        border-radius: 14px;
-        padding: 1rem 1.2rem;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+        border-radius: 18px !important;
+        padding: 1.1rem 1.1rem 0.9rem !important;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(8px);
     }
 
     .stMetric label {
         color: var(--muted) !important;
-        font-size: 0.75rem !important;
+        font-size: 0.7rem !important;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.08em;
+        font-weight: 600;
     }
 
     .stMetric [data-testid="stMetricValue"] {
-        color: var(--dark) !important;
+        color: var(--text) !important;
         font-size: 1.8rem !important;
         font-weight: 700 !important;
+    }
+
+    .stMetric [data-testid="stMetricDelta"] {
+        color: var(--green) !important;
+        font-weight: 600;
     }
 
     div[data-testid="stSelectbox"] [data-baseweb="select"],
     div[data-testid="stNumberInput"] > div,
     div[data-testid="stTextInput"] input,
-    div[data-testid="stChatInput"] textarea {
-        background-color: #ffffff !important;
-        color: #111827 !important;
+    div[data-testid="stChatInput"] textarea,
+    div[data-testid="stDateInput"] > div {
+        background: rgba(15, 23, 42, 0.9) !important;
+        color: var(--text) !important;
         border: 1px solid var(--border) !important;
-        border-radius: 10px !important;
+        border-radius: 12px !important;
+    }
+
+    div[data-testid="stSelectbox"] svg,
+    div[data-testid="stSelectbox"] span,
+    div[data-testid="stNumberInput"] button,
+    div[data-testid="stNumberInput"] svg {
+        color: var(--text) !important;
+        fill: var(--text) !important;
+    }
+
+    button[kind="primary"],
+    [data-testid="stBaseButton-primary"] {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%);
+        color: #03161d !important;
+        border: none !important;
+        border-radius: 12px !important;
+        font-weight: 700 !important;
+        box-shadow: 0 10px 20px rgba(56, 189, 248, 0.25);
     }
 
     button[data-baseweb="tab"] {
         color: var(--muted) !important;
         font-weight: 600 !important;
+        border-radius: 10px 10px 0 0;
+        background: transparent !important;
     }
 
     button[data-baseweb="tab"][aria-selected="true"] {
-        color: var(--primary) !important;
+        color: var(--text) !important;
         border-bottom: 2px solid var(--primary) !important;
+        background: rgba(94, 234, 212, 0.08) !important;
+    }
+
+    .block-container {
+        max-width: 100% !important;
+    }
+
+    .glass-panel {
+        background: linear-gradient(180deg, rgba(14, 22, 33, 0.96), rgba(13, 24, 35, 0.92));
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 1.2rem;
+        box-shadow: var(--shadow);
+    }
+
+    .top-badge {
+        display: inline-block;
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+        background: rgba(94, 234, 212, 0.08);
+        border: 1px solid rgba(94, 234, 212, 0.32);
+        color: var(--primary) !important;
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-weight: 700;
+    }
+
+    .page-title {
+        font-size: 2.5rem !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.04em;
+        color: var(--text) !important;
+        margin-top: 0.55rem !important;
+        margin-bottom: 0.3rem !important;
+    }
+
+    .page-subtitle {
+        color: var(--muted) !important;
+        font-size: 1rem;
+        margin-bottom: 1.2rem !important;
+    }
+
+    .divider {
+        height: 1px;
+        background: linear-gradient(90deg, rgba(94,234,212,0.5), rgba(148,163,184,0.15));
+        border: none;
+        margin: 1rem 0;
+    }
+
+    .status-pill {
+        display: inline-block;
+        padding: 0.4rem 0.7rem;
+        background: rgba(52, 211, 153, 0.12);
+        border: 1px solid rgba(52, 211, 153, 0.28);
+        border-radius: 999px;
+        color: var(--green) !important;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+
+    .hero-panel {
+        background: linear-gradient(135deg, rgba(15, 118, 110, 0.15), rgba(14, 165, 233, 0.10));
+        border: 1px solid rgba(94, 234, 212, 0.14);
+        border-radius: 22px;
+        padding: 1.1rem 1.2rem;
+        box-shadow: var(--shadow);
+    }
+
+    .small-label {
+        color: var(--muted) !important;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 0.4rem;
     }
 
     .chat-user {
-        background: #e0f2fe;
-        color: #0f172a;
+        background: linear-gradient(135deg, rgba(56,189,248,0.18), rgba(94,234,212,0.12));
+        color: var(--text);
+        border: 1px solid rgba(56,189,248,0.18);
         padding: 10px 14px;
         border-radius: 14px 14px 2px 14px;
         margin: 8px 0;
     }
 
     .chat-ai {
-        background: #f3f4f6;
-        color: #111827;
+        background: rgba(148, 163, 184, 0.08);
+        color: var(--text);
+        border: 1px solid rgba(148,163,184,0.18);
         padding: 10px 14px;
         border-radius: 14px 14px 14px 2px;
         margin: 8px 0;
@@ -161,22 +277,39 @@ with st.sidebar:
         st.image("logo_udp.png", use_container_width=True)
     except Exception:
         st.markdown("### Universidad Diego Portales")
+
     st.markdown("### Escuela de Informática y Gestión")
     st.markdown("""
     Facultad de Ingeniería y Ciencias  
     Ingeniería Informática y Gestión
     """)
+
     st.write("---")
+    st.markdown('<div class="status-pill">Sistema activo</div>', unsafe_allow_html=True)
+    st.write("")
+
     if st.button("Sincronizar Datos de Mercado", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
 # ── CABECERA PRINCIPAL ─────────────────────────────────────────────────────────
-st.title("Dashboard de Criptomonedas")
-st.markdown("""
-Monitoreo de mercado en tiempo real con análisis técnico, comparativo y soporte de IA.
-""")
-st.write("---")
+st.markdown('<div class="top-badge">Live market</div>', unsafe_allow_html=True)
+st.markdown('<div class="page-title">Crypto Dashboard</div>', unsafe_allow_html=True)
+st.markdown('<div class="page-subtitle">Monitoreo inteligente de activos digitales, análisis técnico y gestión de cartera.</div>', unsafe_allow_html=True)
+
+hero = st.container()
+with hero:
+    st.markdown('<div class="hero-panel">', unsafe_allow_html=True)
+    col_hero_1, col_hero_2 = st.columns([2, 1])
+    with col_hero_1:
+        st.markdown('<div class="small-label">Resumen del mercado</div>', unsafe_allow_html=True)
+        st.markdown("Tendencias globales, análisis comparativo y soporte de IA para decisiones más rápidas y fundamentadas.")
+    with col_hero_2:
+        st.markdown('<div class="small-label">Estado</div>', unsafe_allow_html=True)
+        st.markdown('<div class="status-pill">Datos en vivo</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
 # ── CARGA DE DATOS ─────────────────────────────────────────────────────────────
 with st.spinner("Estableciendo conexión con los servidores de datos..."):
@@ -186,6 +319,7 @@ if df is not None and not df.empty:
     col1, col2, col3 = st.columns(3)
     btc_data = df[df['symbol'].str.lower() == 'btc']
     eth_data = df[df['symbol'].str.lower() == 'eth']
+
     with col1:
         val_btc = btc_data['current_price'].values[0] if not btc_data.empty else 0
         st.metric(label="Bitcoin", value=f"${val_btc:,.2f}")
@@ -245,10 +379,10 @@ if df is not None and not df.empty:
 
         if "mayor crecimiento" in criterio_busqueda.lower():
             df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=False).head(15)
-            color_secuencia = ['#FF7A18'] * len(df_filtrado)
+            color_secuencia = ['#5eead4'] * len(df_filtrado)
         else:
             df_filtrado = df.sort_values(by='price_change_percentage_24h', ascending=True).head(15)
-            color_secuencia = ['#EF4444'] * len(df_filtrado)
+            color_secuencia = ['#f87171'] * len(df_filtrado)
 
         fig_barras = px.bar(
             df_filtrado,
@@ -256,10 +390,10 @@ if df is not None and not df.empty:
             y='name',
             orientation='h',
             labels={'price_change_percentage_24h': 'Variación diaria (%)', 'name': 'Activo'},
-            template='plotly_white'
+            template='plotly_dark'
         )
         fig_barras.update_traces(marker_color=color_secuencia)
-        fig_barras.update_layout(margin=dict(l=20, r=20, t=10, b=10))
+        fig_barras.update_layout(margin=dict(l=20, r=20, t=10, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig_barras, use_container_width=True)
 
         st.write("---")
@@ -272,9 +406,9 @@ if df is not None and not df.empty:
                 color='price_change_percentage_24h',
                 color_continuous_scale='RdYlGn',
                 color_continuous_midpoint=0,
-                template='plotly_white'
+                template='plotly_dark'
             )
-            fig_treemap.update_layout(margin=dict(l=10, r=10, t=10, b=10))
+            fig_treemap.update_layout(margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_treemap, use_container_width=True)
         except Exception as e:
             st.error(f"Error estructural en la generación del mapa: {e}")
@@ -294,9 +428,9 @@ if df is not None and not df.empty:
                 x='Fecha',
                 y='Precio',
                 labels={'Fecha': 'Línea temporal', 'Precio': 'Valor de cierre (USD)'},
-                template='plotly_white'
+                template='plotly_dark'
             )
-            fig_linea.update_traces(line_color='#00A693', line_width=2)
+            fig_linea.update_traces(line_color='#5eead4', line_width=2)
             st.plotly_chart(fig_linea, use_container_width=True)
 
     # ── TAB C: ANÁLISIS TÉCNICO ───────────────────────────────────
@@ -323,17 +457,17 @@ if df is not None and not df.empty:
             df_hist_t['RSI'] = 100 - (100 / (1 + rs))
 
             fig_ma = go.Figure()
-            fig_ma.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['Precio'], name='Precio', line=dict(color='#00A693', width=2)))
-            fig_ma.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['MA7'], name='MA 7 días', line=dict(color='#F59E0B', width=1.5, dash='dot')))
-            fig_ma.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['MA30'], name='MA 30 días', line=dict(color='#EF4444', width=1.5, dash='dash')))
-            fig_ma.update_layout(title=f"Precio y medias móviles — {activo_tecnico}", template='plotly_white', hovermode='x unified')
+            fig_ma.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['Precio'], name='Precio', line=dict(color='#5eead4', width=2)))
+            fig_ma.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['MA7'], name='MA 7 días', line=dict(color='#fbbf24', width=1.5, dash='dot')))
+            fig_ma.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['MA30'], name='MA 30 días', line=dict(color='#f87171', width=1.5, dash='dash')))
+            fig_ma.update_layout(title=f"Precio y medias móviles — {activo_tecnico}", template='plotly_dark', hovermode='x unified', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_ma, use_container_width=True)
 
             fig_rsi = go.Figure()
-            fig_rsi.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['RSI'], name='RSI', line=dict(color='#7C3AED', width=2), fill='tozeroy', fillcolor='rgba(124,58,237,0.08)'))
+            fig_rsi.add_trace(go.Scatter(x=df_hist_t['Fecha'], y=df_hist_t['RSI'], name='RSI', line=dict(color='#38bdf8', width=2), fill='tozeroy', fillcolor='rgba(56,189,248,0.08)'))
             fig_rsi.add_hline(y=70, line_dash='dash', line_color='red', annotation_text='Sobrecompra (70)')
             fig_rsi.add_hline(y=30, line_dash='dash', line_color='green', annotation_text='Sobreventa (30)')
-            fig_rsi.update_layout(title='RSI', yaxis=dict(range=[0, 100]), template='plotly_white', hovermode='x unified')
+            fig_rsi.update_layout(title='RSI', yaxis=dict(range=[0, 100]), template='plotly_dark', hovermode='x unified', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_rsi, use_container_width=True)
 
             st.write("---")
@@ -501,10 +635,10 @@ if df is not None and not df.empty:
                 df_b['Normalizado'] = (df_b['Precio'] / df_b['Precio'].iloc[0]) * 100
 
                 fig_comp = go.Figure()
-                fig_comp.add_trace(go.Scatter(x=df_a['Fecha'], y=df_a['Normalizado'], name=cripto_a, line=dict(color='#00A693', width=2)))
-                fig_comp.add_trace(go.Scatter(x=df_b['Fecha'], y=df_b['Normalizado'], name=cripto_b, line=dict(color='#FF7A18', width=2)))
+                fig_comp.add_trace(go.Scatter(x=df_a['Fecha'], y=df_a['Normalizado'], name=cripto_a, line=dict(color='#5eead4', width=2)))
+                fig_comp.add_trace(go.Scatter(x=df_b['Fecha'], y=df_b['Normalizado'], name=cripto_b, line=dict(color='#f97316', width=2)))
                 fig_comp.add_hline(y=100, line_dash='dot', line_color='gray', annotation_text='Base 100')
-                fig_comp.update_layout(template='plotly_white', hovermode='x unified', yaxis_title='Rendimiento relativo (%)')
+                fig_comp.update_layout(template='plotly_dark', hovermode='x unified', yaxis_title='Rendimiento relativo (%)', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_comp, use_container_width=True)
 
                 st.write("---")
@@ -613,7 +747,7 @@ if df is not None and not df.empty:
                     "Valorización (USD)": st.session_state["saldo_cash"],
                 }])
                 df_pie = pd.concat([df_port, fila_cash], ignore_index=True)
-                fig_pie = px.pie(df_pie, values='Valorización (USD)', names='Activo', template='plotly_white')
+                fig_pie = px.pie(df_pie, values='Valorización (USD)', names='Activo', template='plotly_dark')
                 st.plotly_chart(fig_pie, use_container_width=True)
         else:
             st.info("La cartera se encuentra vacía. Usa el panel superior para comprar activos.")
