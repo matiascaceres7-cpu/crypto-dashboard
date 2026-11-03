@@ -2,6 +2,7 @@ import os
 from typing import Optional
 
 import pandas as pd
+import plotly.graph_objects as go
 import requests
 import streamlit as st
 from dotenv import load_dotenv
@@ -11,12 +12,23 @@ load_dotenv()
 BASE_URL = "https://api.coingecko.com/api/v3"
 
 
+def _add_area_trace(self, **kwargs):
+    """Compatibility helper for app.py's fig.add_area(...) call."""
+    kwargs.setdefault("fill", "tozeroy")
+    self.add_trace(go.Scatter(**kwargs))
+
+
+# app.py currently calls Figure.add_area(), which Plotly does not provide.
+# Add a small compatibility method so the existing chart renders as an area.
+if not hasattr(go.Figure, "add_area"):
+    go.Figure.add_area = _add_area_trace
+
+
 def _get_api_key() -> Optional[str]:
     """Return the CoinGecko key from Streamlit secrets or environment variables."""
     try:
         secret_key = st.secrets.get("COINGECKO_API_KEY")
     except Exception:
-        # Streamlit secrets may be unavailable when running locally or in tests.
         secret_key = None
     return secret_key or os.getenv("COINGECKO_API_KEY")
 
@@ -61,7 +73,6 @@ def obtener_top_criptos() -> Optional[pd.DataFrame]:
             "price_change_percentage_24h",
             "image",
         ]
-        # Keep the dataframe schema stable even if the API omits optional fields.
         for column in columns:
             if column not in df.columns:
                 df[column] = None
