@@ -2,7 +2,6 @@ import os
 from typing import Optional
 
 import pandas as pd
-import plotly.graph_objects as go
 import requests
 import streamlit as st
 from dotenv import load_dotenv
@@ -12,20 +11,8 @@ load_dotenv()
 BASE_URL = "https://api.coingecko.com/api/v3"
 
 
-def _add_area_trace(self, **kwargs):
-    """Compatibility helper for app.py's fig.add_area(...) call."""
-    kwargs.setdefault("fill", "tozeroy")
-    self.add_trace(go.Scatter(**kwargs))
-
-
-# app.py currently calls Figure.add_area(), which Plotly does not provide.
-# Add a small compatibility method so the existing chart renders as an area.
-if not hasattr(go.Figure, "add_area"):
-    go.Figure.add_area = _add_area_trace
-
-
 def _get_api_key() -> Optional[str]:
-    """Return the CoinGecko key from Streamlit secrets or environment variables."""
+    """Return CoinGecko API key from Streamlit secrets or environment."""
     try:
         secret_key = st.secrets.get("COINGECKO_API_KEY")
     except Exception:
@@ -42,7 +29,7 @@ def _get_headers() -> dict[str, str]:
 
 
 def obtener_top_criptos() -> Optional[pd.DataFrame]:
-    """Fetch the top 250 cryptocurrencies and return the dashboard columns."""
+    """Fetch top 250 crypto rows and return a dashboard-friendly DataFrame."""
     params = {
         "vs_currency": "usd",
         "order": "market_cap_desc",
@@ -76,7 +63,10 @@ def obtener_top_criptos() -> Optional[pd.DataFrame]:
         for column in columns:
             if column not in df.columns:
                 df[column] = None
-        df = df[columns]
+
+        df = df[columns].copy()
+        df["current_price"] = pd.to_numeric(df["current_price"], errors="coerce")
+        df["market_cap"] = pd.to_numeric(df["market_cap"], errors="coerce")
         df["price_change_percentage_24h"] = pd.to_numeric(
             df["price_change_percentage_24h"], errors="coerce"
         )
@@ -86,14 +76,12 @@ def obtener_top_criptos() -> Optional[pd.DataFrame]:
         return None
 
 
-def obtener_historico_activo(
-    coin_id: str = "bitcoin", days: int = 30
-) -> Optional[pd.DataFrame]:
-    """Fetch historical USD prices and return a dataframe with Fecha and Precio."""
+def obtener_historico_activo(coin_id: str = "bitcoin", days: int = 30) -> Optional[pd.DataFrame]:
+    """Return a DataFrame with Fecha and Precio for a given asset."""
     try:
         days = int(days)
         if days < 1:
-            raise ValueError("days debe ser un entero positivo")
+            raise ValueError("days debe ser mayor a 0")
 
         response = requests.get(
             f"{BASE_URL}/coins/{coin_id}/market_chart",
@@ -109,7 +97,8 @@ def obtener_historico_activo(
         df = pd.DataFrame(prices, columns=["timestamp", "Precio"])
         df["Fecha"] = pd.to_datetime(df["timestamp"], unit="ms", errors="coerce")
         df["Precio"] = pd.to_numeric(df["Precio"], errors="coerce")
-        return df[["Fecha", "Precio"]].dropna().reset_index(drop=True)
+        df = df[["Fecha", "Precio"]].dropna().reset_index(drop=True)
+        return df if not df.empty else None
     except (requests.RequestException, ValueError, TypeError, KeyError) as exc:
-        print(f"Error al consultar el histórico de CoinGecko: {exc}")
+        print(f"Error al consultar el histórico: {exc}")
         return None
