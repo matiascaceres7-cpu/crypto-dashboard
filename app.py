@@ -9,843 +9,395 @@ import streamlit as st
 from dotenv import load_dotenv
 from google import genai
 
-st.set_page_config(page_title="NovaCrypto Command Center", page_icon="₿", layout="wide")
-load_dotenv()
-
-
-def get_gemini_client() -> Optional[genai.Client]:
-    try:
-        if "GEMINI_API_KEY" in st.secrets:
-            api_key = st.secrets["GEMINI_API_KEY"]
-        else:
-            api_key = os.getenv("GEMINI_API_KEY")
-
-        if not api_key:
-            return None
-        return genai.Client(api_key=api_key)
-    except Exception:
-        return None
-
-
-ai_client = get_gemini_client()
-
 from coingecko_api import obtener_historico_activo, obtener_top_criptos
 
+load_dotenv()
+st.set_page_config(
+    page_title="NovaCrypto | Terminal de mercado",
+    page_icon="₿",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-@st.cache_data(ttl=300)
-def get_top_criptos_cached():
-    return obtener_top_criptos()
-
-
-def llamar_gemini(prompt: str, system_instruction: str = None) -> str | None:
-    if ai_client is None:
-        st.warning("GEMINI_API_KEY no configurada. Configúralo en Secrets o en .env para usar la IA.")
-        return None
-
-    try:
-        from google.genai import types
-
-        config = None
-        if system_instruction:
-            config = types.GenerateContentConfig(system_instruction=system_instruction)
-
-        kwargs = {"model": "gemini-2.5-flash", "contents": prompt}
-        if config is not None:
-            kwargs["config"] = config
-
-        response = ai_client.models.generate_content(**kwargs)
-        return getattr(response, "text", None)
-    except Exception as e:
-        error_str = str(e)
-        if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
-            st.warning("La IA está recibiendo muchas consultas. Espera unos segundos e inténtalo de nuevo.")
-        else:
-            st.error(f"Error en la API de Inteligencia Artificial: {e}")
-        return None
-
+# ── Palette and chart helpers ─────────────────────────────────────────────────
+BG = "#071521"
+PANEL = "#0D2131"
+PANEL_ALT = "#102A3D"
+TEXT = "#EAF4FB"
+MUTED = "#93AFC2"
+TEAL = "#55E6D0"
+BLUE = "#56B8F5"
+AMBER = "#FFBF69"
+RED = "#FF7185"
+GREEN = "#4DDBA5"
 
 PLOTLY_THEME = {
     "template": "plotly_dark",
     "paper_bgcolor": "rgba(0,0,0,0)",
     "plot_bgcolor": "rgba(0,0,0,0)",
-    "font": {"family": "Inter, Arial, sans-serif", "color": "#E2E8F0"},
-    "hoverlabel": {"bgcolor": "#0F172A", "font_size": 12, "font_family": "Inter, Arial, sans-serif"},
-    "legend": {"bgcolor": "rgba(15, 23, 42, 0.55)", "bordercolor": "rgba(148,163,184,0.2)", "borderwidth": 1},
-    "margin": dict(l=10, r=10, t=30, b=10),
+    "font": {"family": "Inter, Arial, sans-serif", "color": TEXT, "size": 13},
+    "hoverlabel": {"bgcolor": PANEL, "font_size": 13, "font_family": "Inter, Arial, sans-serif"},
+    "margin": {"l": 12, "r": 18, "t": 58, "b": 12},
+    "legend": {"orientation": "h", "y": 1.12, "x": 0, "bgcolor": "rgba(0,0,0,0)"},
 }
 
 
-def configure_plotly(fig):
+def style_chart(fig):
     fig.update_layout(**PLOTLY_THEME)
-    fig.update_xaxes(showgrid=False, linecolor="rgba(148,163,184,0.35)", tickfont={"color": "#CBD5E1"})
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(148,163,184,0.12)", linecolor="rgba(148,163,184,0.35)", tickfont={"color": "#CBD5E1"})
+    fig.update_xaxes(showgrid=False, zeroline=False, linecolor="rgba(147,175,194,.25)")
+    fig.update_yaxes(showgrid=True, gridcolor="rgba(147,175,194,.10)", zeroline=False, linecolor="rgba(147,175,194,.25)")
     return fig
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def load_market_data():
+    return obtener_top_criptos()
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def load_history(coin_id: str, days: int):
+    return obtener_historico_activo(coin_id=coin_id, days=days)
+
+
+def get_gemini_client() -> Optional[genai.Client]:
+    try:
+        key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+        return genai.Client(api_key=key) if key else None
+    except Exception:
+        return None
+
+
+def ask_gemini(prompt: str, instruction: Optional[str] = None) -> Optional[str]:
+    client = get_gemini_client()
+    if client is None:
+        st.warning("La función de IA requiere GEMINI_API_KEY en Streamlit Secrets.")
+        return None
+    try:
+        from google.genai import types
+        config = types.GenerateContentConfig(system_instruction=instruction) if instruction else None
+        args = {"model": "gemini-2.5-flash", "contents": prompt}
+        if config:
+            args["config"] = config
+        response = client.models.generate_content(**args)
+        return getattr(response, "text", None)
+    except Exception as exc:
+        if "429" in str(exc) or "RESOURCE_EXHAUSTED" in str(exc):
+            st.warning("La IA alcanzó su límite temporal. Espera un momento y vuelve a intentar.")
+        else:
+            st.error("No se pudo completar la solicitud a Gemini. Revisa los logs de la app.")
+        return None
+
+
+# ── Visual system ─────────────────────────────────────────────────────────────
 st.markdown(
-    """
+    f"""
     <style>
-    :root {
-        --bg: #061622;
-        --bg-2: #0a1c2d;
-        --panel: rgba(15, 23, 42, 0.9);
-        --border: rgba(148, 163, 184, 0.18);
-        --primary: #56f0d5;
-        --primary-2: #48b9ff;
-        --text: #edf6ff;
-        --muted: #9cb7d4;
-        --green: #35d39e;
-        --red: #fe6b6b;
-        --shadow: 0 18px 40px rgba(3, 9, 18, 0.35);
-    }
-
-    html, body, [data-testid="stAppViewContainer"] {
-        background: radial-gradient(circle at top left, rgba(69, 180, 255, 0.16), transparent 25%), radial-gradient(circle at top right, rgba(86, 240, 213, 0.12), transparent 26%), linear-gradient(180deg, var(--bg) 0%, #081a2a 100%);
-        color: var(--text);
-    }
-
-    .stApp {
-        background: transparent;
-        color: var(--text);
-    }
-
-    .main .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 2rem !important;
-        max-width: 100% !important;
-    }
-
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, rgba(5, 16, 28, 0.96), rgba(9, 24, 36, 0.96)) !important;
-        border-right: 1px solid var(--border);
-    }
-
-    [data-testid="stSidebar"] .stMarkdown,
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] h1,
-    [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3,
-    [data-testid="stSidebar"] span,
-    [data-testid="stSidebar"] div {
-        color: var(--text) !important;
-    }
-
-    .brand-card {
-        display: flex;
-        align-items: center;
-        gap: 0.85rem;
-        background: linear-gradient(135deg, rgba(86,240,213,0.12), rgba(72,185,255,0.10));
-        border: 1px solid rgba(86,240,213,0.20);
-        border-radius: 18px;
-        padding: 0.8rem 0.9rem;
-        margin-bottom: 1rem;
-    }
-
-    .brand-name {
-        font-size: 1.04rem;
-        font-weight: 800;
-        letter-spacing: -0.04em;
-        color: #F3FBFF !important;
-    }
-
-    .brand-tag {
-        font-size: 0.67rem;
-        letter-spacing: 0.13em;
-        text-transform: uppercase;
-        color: var(--muted) !important;
-    }
-
-    .stMetric {
-        background: linear-gradient(180deg, rgba(14, 25, 37, 0.96), rgba(10, 19, 30, 0.92));
-        border: 1px solid var(--border);
-        border-radius: 18px !important;
-        padding: 1.05rem 1.1rem 0.9rem !important;
-        box-shadow: var(--shadow);
-    }
-
-    .stMetric label {
-        color: var(--muted) !important;
-        font-size: 0.68rem !important;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        font-weight: 700;
-    }
-
-    .stMetric [data-testid="stMetricValue"] {
-        color: var(--text) !important;
-        font-size: 1.7rem !important;
-        font-weight: 800 !important;
-    }
-
-    div[data-testid="stSelectbox"] > div,
-    div[data-testid="stSelectbox"] [data-baseweb="select"],
-    div[data-testid="stNumberInput"] > div,
-    div[data-testid="stTextInput"] input,
-    div[data-testid="stChatInput"] textarea,
-    div[data-testid="stDateInput"] > div {
-        background: rgba(12, 24, 36, 0.9) !important;
-        color: var(--text) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 12px !important;
-    }
-
-    div[data-testid="stSelectbox"] * {
-        color: var(--text) !important;
-    }
-
-    div[data-baseweb="popover"] {
-        background: #0b1d2a !important;
-        color: var(--text) !important;
-    }
-
-    div[role="option"] {
-        background: #0b1d2a !important;
-        color: var(--text) !important;
-    }
-
-    div[role="option"]:hover,
-    div[role="option"][aria-selected="true"] {
-        background: rgba(86,240,213,0.12) !important;
-        color: #ffffff !important;
-    }
-
-    .stTabs [role="tablist"] {
-        background: rgba(15, 23, 42, 0.4);
-        border: 1px solid var(--border);
-        padding: 0.45rem;
-        border-radius: 18px;
-    }
-
-    button[data-baseweb="tab"] {
-        color: var(--muted) !important;
-        font-weight: 700 !important;
-        background: transparent !important;
-        border-radius: 12px !important;
-    }
-
-    button[data-baseweb="tab"][aria-selected="true"] {
-        color: #041822 !important;
-        background: linear-gradient(135deg, var(--primary), var(--primary-2)) !important;
-    }
-
-    .ops-shell {
-        width: 100%;
-        padding: 0.15rem 0 0.5rem;
-    }
-
-    .ops-header {
-        padding: 0.25rem 0 0.9rem;
-    }
-
-    .live-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.8rem;
-        padding: 0.38rem 0.72rem;
-        border-radius: 999px;
-        background: rgba(86,240,213,0.08);
-        border: 1px solid rgba(86,240,213,0.22);
-        color: var(--primary) !important;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        font-size: 0.68rem;
-        font-weight: 800;
-    }
-
-    .live-pill::before {
-        content: "";
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--green);
-        box-shadow: 0 0 12px rgba(53,211,158,0.9);
-    }
-
-    .header-row {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 1rem;
-        flex-wrap: wrap;
-    }
-
-    .title-ops {
-        margin: 0;
-        font-size: clamp(2.2rem, 3vw, 3.1rem);
-        line-height: 1.08;
-        letter-spacing: -0.06em;
-        color: #F5FAFF;
-        font-weight: 900;
-    }
-
-    .status-pill-ops {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.55rem;
-        padding: 0.52rem 0.9rem;
-        border-radius: 999px;
-        background: rgba(53,211,158,0.14);
-        border: 1px solid rgba(53,211,158,0.28);
-        color: var(--green) !important;
-        font-size: 0.78rem;
-        font-weight: 800;
-    }
-
-    .signal-banner {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        width: 100%;
-        border: 1px solid rgba(86,240,213,0.18);
-        background: linear-gradient(135deg, rgba(13, 34, 52, 0.85), rgba(10, 26, 39, 0.8));
-        border-radius: 24px;
-        padding: 1.15rem 1.3rem;
-        min-height: 82px;
-        box-shadow: 0 10px 26px rgba(8, 23, 33, 0.2);
-    }
-
-    .signal-banner .banner-text {
-        color: #dfeeff;
-        font-size: clamp(1.05rem, 1.2vw, 1.3rem);
-        line-height: 1.4;
-        margin: 0;
-        font-weight: 600;
-    }
-
-    .signal-banner .banner-side {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 185px;
-        padding: 0.75rem 1rem;
-        border-radius: 999px;
-        background: rgba(53,211,158,0.12);
-        border: 1px solid rgba(53,211,158,0.35);
-        color: var(--green) !important;
-        font-weight: 800;
-    }
-
-    .signal-row {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(180px, 1fr));
-        gap: 1rem;
-        margin: 1.1rem 0 0.7rem;
-    }
-
-    .signal-card {
-        background: linear-gradient(180deg, rgba(12, 23, 35, 0.96), rgba(9, 21, 32, 0.92));
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        padding: 1rem 1.1rem;
-        min-height: 132px;
-        box-shadow: var(--shadow);
-    }
-
-    .signal-title {
-        color: var(--muted);
-        font-size: 0.68rem;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        margin-bottom: 0.6rem;
-        font-weight: 700;
-    }
-
-    .signal-value {
-        font-size: clamp(1.15rem, 2vw, 1.8rem);
-        font-weight: 800;
-        letter-spacing: -0.05em;
-        margin: 0;
-        line-height: 1.15;
-    }
-
-    .signal-sub {
-        font-size: 0.82rem;
-        color: var(--muted);
-        margin-top: 0.45rem;
-    }
-
-    .divider {
-        height: 1px;
-        background: linear-gradient(90deg, rgba(86,240,213,0.4), rgba(148,163,184,0.1));
-        border: none;
-        margin: 1rem 0 1.1rem;
-    }
-
-    @media (max-width: 960px) {
-        .signal-row {
-            grid-template-columns: repeat(2, minmax(180px, 1fr));
-        }
-        .signal-banner {
-            flex-direction: column;
-            align-items: flex-start;
-        }
-    }
-
-    @media (max-width: 560px) {
-        .signal-row {
-            grid-template-columns: 1fr;
-        }
-    }
+      :root {{ color-scheme: dark; }}
+      html, body, [data-testid="stAppViewContainer"] {{
+        background: radial-gradient(ellipse at 12% 0%, rgba(35,128,157,.18), transparent 34%),
+                    radial-gradient(ellipse at 92% 8%, rgba(56,112,178,.15), transparent 30%), {BG};
+        color: {TEXT};
+      }}
+      .stApp {{ background: transparent; }}
+      .main .block-container {{ max-width: 1480px; padding: 1.5rem 2.2rem 3rem; }}
+      [data-testid="stSidebar"] {{ background: linear-gradient(180deg,#091925,#0c2030) !important; border-right: 1px solid rgba(147,175,194,.14); }}
+      [data-testid="stSidebar"] * {{ color: {TEXT}; }}
+      h1,h2,h3 {{ letter-spacing: -.035em; }}
+      h2 {{ margin-top: .55rem; }}
+      [data-testid="stMetric"] {{ background: linear-gradient(145deg,rgba(16,42,61,.96),rgba(10,29,43,.96)); border: 1px solid rgba(147,175,194,.16); border-radius: 18px; padding: 1rem 1.15rem; box-shadow: 0 12px 30px rgba(0,0,0,.16); }}
+      [data-testid="stMetricLabel"] {{ color: {MUTED} !important; font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; }}
+      [data-testid="stMetricValue"] {{ color: {TEXT} !important; font-weight: 750; }}
+      [data-testid="stSelectbox"] [data-baseweb="select"] {{ background: {PANEL_ALT} !important; border: 1px solid rgba(147,175,194,.22) !important; border-radius: 12px !important; }}
+      [data-testid="stSelectbox"] * {{ color: {TEXT} !important; }}
+      [data-baseweb="popover"], [data-baseweb="menu"], [role="listbox"], [role="option"] {{ background: #102A3D !important; color: {TEXT} !important; }}
+      [role="option"]:hover, [role="option"][aria-selected="true"] {{ background: rgba(85,230,208,.16) !important; }}
+      [data-testid="stTextInput"] input, [data-testid="stChatInput"] textarea, [data-testid="stNumberInput"] input {{ background: {PANEL_ALT} !important; color: {TEXT} !important; border-color: rgba(147,175,194,.22) !important; }}
+      button[data-baseweb="tab"] {{ color: {MUTED} !important; font-weight: 650; }}
+      button[data-baseweb="tab"][aria-selected="true"] {{ color: {TEAL} !important; }}
+      [data-testid="stTabs"] [role="tablist"] {{ border-bottom: 1px solid rgba(147,175,194,.16); gap: .55rem; }}
+      .brand {{ display:flex; align-items:center; gap:.85rem; padding:.9rem 1rem; border:1px solid rgba(85,230,208,.22); border-radius:18px; background:linear-gradient(135deg,rgba(85,230,208,.12),rgba(86,184,245,.08)); margin-bottom:1.2rem; }}
+      .brand-icon {{ display:grid;place-items:center;width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,{TEAL},{BLUE});color:#071521;font-size:23px;font-weight:900; }}
+      .brand-name {{ color:{TEXT};font-size:1.03rem;font-weight:800;letter-spacing:-.03em; }}
+      .brand-caption {{ color:{MUTED};font-size:.68rem;letter-spacing:.13em;text-transform:uppercase;margin-top:2px; }}
+      .eyebrow {{ color:{TEAL};font-size:.72rem;font-weight:750;letter-spacing:.16em;text-transform:uppercase;margin-bottom:.3rem; }}
+      .hero-title {{ color:{TEXT};font-size:clamp(2rem,4vw,3.35rem);font-weight:850;letter-spacing:-.065em;line-height:1.05;margin:0; }}
+      .hero-copy {{ color:{MUTED};font-size:1.02rem;line-height:1.6;margin-top:.75rem;max-width:740px; }}
+      .hero {{ padding:1.45rem 1.6rem; border:1px solid rgba(147,175,194,.14); border-radius:24px; background:linear-gradient(135deg,rgba(16,42,61,.85),rgba(9,25,38,.78)); box-shadow:0 20px 50px rgba(0,0,0,.18); margin-bottom:1.2rem; }}
+      .section-note {{ color:{MUTED}; font-size:.9rem; margin-top:-.25rem; margin-bottom:1rem; }}
+      .stButton > button {{ border-radius:12px; border:1px solid rgba(85,230,208,.28); background:linear-gradient(135deg,rgba(85,230,208,.16),rgba(86,184,245,.12)); color:{TEXT}; font-weight:700; transition:all .18s ease; }}
+      .stButton > button:hover {{ border-color:{TEAL}; color:{TEAL}; transform:translateY(-1px); }}
+      @media(max-width:700px) {{ .main .block-container {{ padding:1rem .8rem 2rem; }} .hero {{ padding:1.1rem; }} }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-if "reporte_institucional" not in st.session_state:
-    st.session_state["reporte_institucional"] = None
-if "saldo_cash" not in st.session_state:
-    st.session_state["saldo_cash"] = 100000.0
-if "billetera" not in st.session_state:
-    st.session_state["billetera"] = {}
-if "chat_historia" not in st.session_state:
-    st.session_state["chat_historia"] = []
 
+# ── Header and navigation ─────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown(
-        """
-        <div class="brand-card">
-            <div class="brand-mark" style="width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,#56f0d5,#48b9ff);box-shadow:0 10px 24px rgba(72,185,255,0.28);">
-                <span style="font-size:24px;">₿</span>
-            </div>
-            <div>
-                <div class="brand-name">NovaCrypto</div>
-                <div class="brand-tag">Market Intelligence</div>
-            </div>
-        </div>
-        """,
+        '<div class="brand"><div class="brand-icon">₿</div><div><div class="brand-name">NOVA / CRYPTO</div><div class="brand-caption">Market intelligence</div></div></div>',
         unsafe_allow_html=True,
     )
-
-    try:
-        st.image("logo_udp.png", use_container_width=True)
-    except Exception:
-        st.markdown("### Universidad Diego Portales")
-
-    st.markdown("### Escuela de Informática y Gestión")
-    st.markdown("Facultad de Ingeniería y Ciencias\nIngeniería Informática y Gestión")
-    st.write("---")
-    st.markdown('<div class="status-pill" style="display:inline-block;padding:0.45rem 0.7rem;border-radius:999px;background:rgba(53,211,158,0.10);border:1px solid rgba(53,211,158,0.28);color:#35d39e;font-size:0.72rem;font-weight:700;">Sistema activo</div>', unsafe_allow_html=True)
-    if st.button("Sincronizar Datos de Mercado", use_container_width=True):
+    st.caption("CENTRO DE ANÁLISIS DIGITAL")
+    st.markdown("Datos de mercado, análisis técnico y herramientas de comparación en un solo lugar.")
+    st.divider()
+    st.caption(f"Actualizado al cargar · {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    if st.button("↻  Actualizar mercado", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
-st.markdown('<div class="ops-shell"><div class="ops-header"><div class="live-pill">Live market</div><div class="header-row"><h1 class="title-ops">NovaCrypto Command Center</h1><div class="status-pill-ops">Operativo</div></div></div></div>', unsafe_allow_html=True)
-st.markdown('<div class="signal-banner"><p class="banner-text">Más que un dashboard: un centro operativo para análisis, señales y decisiones rápidas.</p><div class="banner-side">Operativo</div></div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
-st.markdown('<hr class="divider">', unsafe_allow_html=True)
+st.markdown('<div class="eyebrow">TERMINAL DE MERCADO · EN VIVO</div>', unsafe_allow_html=True)
+st.markdown('<div class="hero"><h1 class="hero-title">NovaCrypto<br>Market Intelligence</h1><p class="hero-copy">Una vista clara del mercado cripto: movimientos, tendencias e indicadores técnicos para explorar datos con más contexto.</p></div>', unsafe_allow_html=True)
 
-with st.spinner("Estableciendo conexión con los servidores de datos..."):
-    df = get_top_criptos_cached()
+with st.spinner("Conectando con CoinGecko..."):
+    market = load_market_data()
 
-if df is not None and not df.empty:
-    market_top = df.sort_values("price_change_percentage_24h", ascending=False).head(1).iloc[0]
-    market_bottom = df.sort_values("price_change_percentage_24h", ascending=True).head(1).iloc[0]
-    avg_move = df["price_change_percentage_24h"].mean()
-    total_market_cap = df["market_cap"].sum()
+if market is None or market.empty:
+    st.error("No se pudieron cargar los datos de mercado. Verifica la conexión con CoinGecko e inténtalo de nuevo.")
+    st.stop()
 
-    st.markdown('<div class="signal-row">', unsafe_allow_html=True)
-    signal_cards = [
-        ("Top mover", market_top["name"], f"+{market_top['price_change_percentage_24h']:.2f}% en 24h", "#5eead4"),
-        ("Mayor presión", market_bottom["name"], f"{market_bottom['price_change_percentage_24h']:.2f}% en 24h", "#f87171"),
-        ("Promedio del mercado", f"{avg_move:.2f}%", "Movimiento medio diario", "#38bdf8"),
-        ("Capital total", f"${total_market_cap:,.0f}", "Capitalización total", "#fbbf24"),
-    ]
-    for title, value, sub, color in signal_cards:
-        st.markdown(
-            f"""
-            <div class="signal-card">
-                <div class="signal-title">{title}</div>
-                <div class="signal-value" style="color:{color};">{value}</div>
-                <div class="signal-sub">{sub}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+market = market.copy()
+for col in ("current_price", "market_cap", "price_change_percentage_24h"):
+    if col not in market:
+        market[col] = pd.NA
+    market[col] = pd.to_numeric(market[col], errors="coerce")
+market["symbol"] = market["symbol"].fillna("").astype(str)
+market["name"] = market["name"].fillna("Activo")
+market = market.dropna(subset=["id", "current_price"])
+if market.empty:
+    st.error("CoinGecko respondió, pero no hay precios válidos para mostrar.")
+    st.stop()
+
+market["symbol_upper"] = market["symbol"].str.upper()
+valid_change = market.dropna(subset=["price_change_percentage_24h"])
+
+# Dashboard summary cards
+bitcoin_rows = market[market["symbol_upper"] == "BTC"]
+ethereum_rows = market[market["symbol_upper"] == "ETH"]
+col_btc, col_eth, col_change, col_cap = st.columns(4)
+with col_btc:
+    value = bitcoin_rows["current_price"].iloc[0] if not bitcoin_rows.empty else None
+    st.metric("Bitcoin", f"${value:,.2f}" if pd.notna(value) else "—")
+with col_eth:
+    value = ethereum_rows["current_price"].iloc[0] if not ethereum_rows.empty else None
+    st.metric("Ethereum", f"${value:,.2f}" if pd.notna(value) else "—")
+with col_change:
+    st.metric("Activos con datos", f"{len(market):,}")
+with col_cap:
+    cap = market["market_cap"].sum(min_count=1)
+    st.metric("Capitalización (Top list)", f"${cap:,.0f}" if pd.notna(cap) else "—")
+
+market_tab, technical_tab, compare_tab, ai_tab = st.tabs(["◈  Mercado", "⌁  Análisis técnico", "⇄  Comparador", "✦  Asistente IA"])
+
+# ── Market view ───────────────────────────────────────────────────────────────
+with market_tab:
+    st.subheader("Pulso del mercado")
+    st.markdown('<div class="section-note">Activos destacados y variación porcentual de las últimas 24 horas.</div>', unsafe_allow_html=True)
+    if not valid_change.empty:
+        best = valid_change.loc[valid_change["price_change_percentage_24h"].idxmax()]
+        worst = valid_change.loc[valid_change["price_change_percentage_24h"].idxmin()]
+        avg_move = valid_change["price_change_percentage_24h"].mean()
+        a, b, c = st.columns(3)
+        with a:
+            st.metric("Mayor alza · 24 h", f"{best['name']}  {best['price_change_percentage_24h']:+.2f}%")
+        with b:
+            st.metric("Mayor caída · 24 h", f"{worst['name']}  {worst['price_change_percentage_24h']:+.2f}%")
+        with c:
+            st.metric("Variación media", f"{avg_move:+.2f}%")
+
+    st.subheader("Mapa de rendimiento")
+    st.markdown('<div class="section-note">El tamaño representa capitalización; el color representa variación en 24 h.</div>', unsafe_allow_html=True)
+    treemap_df = market.dropna(subset=["market_cap", "price_change_percentage_24h"]).copy()
+    treemap_df = treemap_df[treemap_df["market_cap"] > 0]
+    if not treemap_df.empty:
+        max_abs = float(treemap_df["price_change_percentage_24h"].abs().quantile(0.95))
+        max_abs = max(max_abs, 1.0)
+        fig_tree = px.treemap(
+            treemap_df,
+            path=[px.Constant("Mercado"), "name"],
+            values="market_cap",
+            color="price_change_percentage_24h",
+            color_continuous_scale=[[0, "#E85D75"], [0.5, "#243B53"], [1, "#45D6A4"]],
+            range_color=[-max_abs, max_abs],
+            custom_data=["symbol_upper", "current_price", "price_change_percentage_24h", "market_cap"],
+            labels={"price_change_percentage_24h": "Variación 24 h", "market_cap": "Capitalización"},
         )
-    st.markdown("</div>", unsafe_allow_html=True)
+        fig_tree.update_traces(
+            texttemplate="<b>%{label}</b><br>%{customdata[0]} · %{customdata[2]:+.2f}%",
+            hovertemplate="<b>%{label}</b> (%{customdata[0]})<br>Precio: $%{customdata[1]:,.4g}<br>Variación 24 h: %{customdata[2]:+.2f}%<br>Capitalización: $%{customdata[3]:,.0f}<extra></extra>",
+            marker={"line": {"width": 1.2, "color": "#071521"}},
+            root_color="#102A3D",
+        )
+        fig_tree.update_coloraxes(colorbar={"title": {"text": "Variación 24 h (%)"}, "ticksuffix": "%", "len": 0.78})
+        fig_tree.update_layout(**PLOTLY_THEME, height=610)
+        st.plotly_chart(fig_tree, use_container_width=True)
+    else:
+        st.info("No hay suficientes datos de capitalización y variación para dibujar el mapa.")
 
-    st.write("---")
-    col1, col2, col3 = st.columns(3)
-    btc_data = df[df["symbol"].str.lower() == "btc"]
-    eth_data = df[df["symbol"].str.lower() == "eth"]
-    with col1:
-        val_btc = btc_data["current_price"].values[0] if not btc_data.empty else 0
-        st.metric("Bitcoin", f"${val_btc:,.2f}")
-    with col2:
-        val_eth = eth_data["current_price"].values[0] if not eth_data.empty else 0
-        st.metric("Ethereum", f"${val_eth:,.2f}")
-    with col3:
-        st.metric("Activos analizados", len(df))
+    st.subheader("Listado de activos")
+    display_df = market[["name", "symbol_upper", "current_price", "market_cap", "price_change_percentage_24h"]].copy()
+    display_df.columns = ["Activo", "Ticker", "Precio USD", "Capitalización USD", "Variación 24 h (%)"]
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Precio USD": st.column_config.NumberColumn(format="$%.4f"),
+            "Capitalización USD": st.column_config.NumberColumn(format="$%.0f"),
+            "Variación 24 h (%)": st.column_config.NumberColumn(format="%.2f%%"),
+        },
+    )
 
-    st.write("---")
-    tab_datos, tab_analisis, tab_tecnico, tab_ia, tab_chat, tab_comparador, tab_simulador = st.tabs(["📈 Resumen", "📊 Volatilidad", "📉 Técnico", "🤖 IA", "💬 Chat", "⚖️ Comparador", "🧮 Portafolio"])
+# ── Technical analysis ───────────────────────────────────────────────────────
+with technical_tab:
+    st.subheader("Análisis técnico")
+    st.markdown('<div class="section-note">Precio, medias móviles y RSI calculados sobre el historial devuelto por CoinGecko.</div>', unsafe_allow_html=True)
+    coin_map = dict(zip(market["name"], market["id"]))
+    col_coin, col_days = st.columns([2, 1])
+    with col_coin:
+        selected_name = st.selectbox("Activo", list(coin_map), key="technical_coin")
+    with col_days:
+        days = st.selectbox("Ventana histórica", [30, 60, 90], index=0, key="technical_days")
 
-    with tab_datos:
-        st.subheader("Reporte global de capitalización")
-        df_final = df.copy()
-        tasa_cambio_clp = 935.0
-        df_final["Precio (CLP)"] = df_final["current_price"] * tasa_cambio_clp
-        df_final["Market Cap (CLP)"] = df_final["market_cap"] * tasa_cambio_clp
-        df_final = df_final[["name", "symbol", "current_price", "Precio (CLP)", "market_cap", "Market Cap (CLP)", "price_change_percentage_24h"]]
-        df_final.columns = ["Activo", "Ticker", "Precio (USD)", "Precio (CLP)", "Market Cap (USD)", "Market Cap (CLP)", "Variación 24h"]
-        st.dataframe(df_final, use_container_width=True, height=450, hide_index=True)
+    with st.spinner(f"Cargando historial de {selected_name}..."):
+        history = load_history(coin_map[selected_name], days)
 
-    with tab_analisis:
-        st.subheader("Análisis comparativo y distribución del mercado")
-        criterio = st.radio("Seleccione el segmento a evaluar:", ["Top 15 activos con mayor crecimiento", "Top 15 activos con mayor contracción"], horizontal=True)
-        if "mayor crecimiento" in criterio.lower():
-            df_filtrado = df.sort_values("price_change_percentage_24h", ascending=False).head(15)
+    if history is None or history.empty:
+        st.warning("No hay datos históricos disponibles para este activo y período.")
+    else:
+        hist = history.copy().dropna(subset=["Fecha", "Precio"])
+        hist["Fecha"] = pd.to_datetime(hist["Fecha"], errors="coerce")
+        hist["Precio"] = pd.to_numeric(hist["Precio"], errors="coerce")
+        hist = hist.dropna(subset=["Fecha", "Precio"]).sort_values("Fecha").reset_index(drop=True)
+        if hist.empty:
+            st.warning("El historial recibido no contiene precios válidos.")
         else:
-            df_filtrado = df.sort_values("price_change_percentage_24h", ascending=True).head(15)
+            hist["MA7"] = hist["Precio"].rolling(window=7, min_periods=1).mean()
+            hist["MA30"] = hist["Precio"].rolling(window=30, min_periods=1).mean()
+            delta = hist["Precio"].diff()
+            gains = delta.clip(lower=0).rolling(window=14, min_periods=14).mean()
+            losses = (-delta.clip(upper=0)).rolling(window=14, min_periods=14).mean()
+            rs = gains / losses.replace(0, pd.NA)
+            hist["RSI"] = 100 - 100 / (1 + rs)
 
-        fig_barras = px.bar(
-            df_filtrado,
-            x="price_change_percentage_24h",
-            y="name",
-            orientation="h",
-            labels={"price_change_percentage_24h": "Variación diaria (%)", "name": "Activo"},
-            template="plotly_dark",
-            color_discrete_sequence=["#5eead4"] * len(df_filtrado),
-            text_auto=".2f",
-        )
-        fig_barras.update_traces(marker_line_color="rgba(255,255,255,0.15)", marker_line_width=1, textposition="outside")
-        fig_barras.update_layout(title="Rendimiento del mercado por activo", xaxis_title="Variación diaria (%)", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig_barras, use_container_width=True)
+            last_price = hist["Precio"].iloc[-1]
+            first_price = hist["Precio"].iloc[0]
+            period_return = ((last_price / first_price) - 1) * 100 if first_price else float("nan")
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Precio más reciente", f"${last_price:,.4f}")
+            m2.metric(f"Rendimiento · {days} días", f"{period_return:+.2f}%" if pd.notna(period_return) else "—")
+            valid_rsi = hist["RSI"].dropna()
+            m3.metric("RSI", f"{valid_rsi.iloc[-1]:.1f}" if not valid_rsi.empty else "Calculando…")
 
-        st.write("---")
-        st.subheader("Mapa de calor del mercado")
-        try:
-            fig_treemap = px.treemap(df, path=["name"], values="market_cap", color="price_change_percentage_24h", color_continuous_scale="Viridis", template="plotly_dark")
-            fig_treemap.update_layout(title="Capitalización y variación diaria", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_treemap, use_container_width=True)
-        except Exception as e:
-            st.error(f"Error estructural en la generación del mapa: {e}")
-
-        st.write("---")
-        st.subheader("Tendencia histórica")
-        diccionario_criptos = dict(zip(df["name"], df["id"]))
-        nombre_seleccionado = st.selectbox("Activo a analizar:", list(diccionario_criptos.keys()))
-        id_seleccionado = diccionario_criptos[nombre_seleccionado]
-
-        with st.spinner("Descargando registros históricos..."):
-            df_historico = obtener_historico_activo(coin_id=id_seleccionado, days=30)
-
-        if df_historico is not None and not df_historico.empty:
-            df_historico = df_historico.dropna().copy()
-            df_historico["Precio"] = pd.to_numeric(df_historico["Precio"], errors="coerce").dropna()
-            df_historico = df_historico.dropna(subset=["Precio"]).copy()
-
-            fig_linea = go.Figure()
-            fig_linea.add_trace(
-                go.Scatter(
-                    x=df_historico["Fecha"],
-                    y=df_historico["Precio"],
-                    mode="lines",
-                    name=nombre_seleccionado,
-                    line=dict(color="#5eead4", width=3),
-                    fill="tozeroy",
-                    fillcolor="rgba(94,234,212,0.15)",
-                    hovertemplate="<b>%{x|%d %b}</b><br>Precio: $%{y:,.2f}<extra></extra>",
-                )
+            fig_price = go.Figure()
+            fig_price.add_trace(go.Scatter(
+                x=hist["Fecha"], y=hist["Precio"], name="Precio",
+                mode="lines", line={"color": TEAL, "width": 3.2, "shape": "spline"},
+                fill="tozeroy", fillcolor="rgba(85,230,208,.075)",
+                hovertemplate="<b>%{x|%d %b %Y}</b><br>Precio: $%{y:,.4f}<extra></extra>",
+            ))
+            fig_price.add_trace(go.Scatter(
+                x=hist["Fecha"], y=hist["MA7"], name="Media móvil · 7 períodos",
+                mode="lines", line={"color": AMBER, "width": 2.2, "shape": "spline"},
+                hovertemplate="MA 7: $%{y:,.4f}<extra></extra>",
+            ))
+            fig_price.add_trace(go.Scatter(
+                x=hist["Fecha"], y=hist["MA30"], name="Media móvil · 30 períodos",
+                mode="lines", line={"color": RED, "width": 2.2, "shape": "spline"},
+                hovertemplate="MA 30: $%{y:,.4f}<extra></extra>",
+            ))
+            style_chart(fig_price)
+            fig_price.update_layout(
+                title={"text": f"{selected_name} <sup>· precio y tendencia</sup>", "x": 0.02, "xanchor": "left"},
+                xaxis_title=None, yaxis_title="Precio (USD)", hovermode="x unified",
+                height=500, legend={"orientation": "h", "y": 1.12, "x": 0.02},
             )
-            fig_linea = configure_plotly(fig_linea)
-            fig_linea.update_layout(title=f"{nombre_seleccionado} — Serie histórica", xaxis_title="Fecha", yaxis_title="Precio (USD)", hovermode="x unified")
-            st.plotly_chart(fig_linea, use_container_width=True)
-        else:
-            st.warning("No se pudieron cargar los datos históricos para este activo.")
-
-    with tab_tecnico:
-        st.subheader("Análisis técnico avanzado")
-        diccionario_criptos_t = dict(zip(df["name"], df["id"]))
-        col_at1, col_at2 = st.columns(2)
-        with col_at1:
-            activo_tecnico = st.selectbox("Seleccione activo:", list(diccionario_criptos_t.keys()), key="at_activo")
-        with col_at2:
-            ventana_dias = st.selectbox("Período:", [30, 60, 90], key="at_dias")
-
-        with st.spinner("Calculando indicadores técnicos..."):
-            df_hist_t = obtener_historico_activo(coin_id=diccionario_criptos_t[activo_tecnico], days=ventana_dias)
-
-        if df_hist_t is not None and not df_hist_t.empty:
-            df_hist_t = df_hist_t.dropna().copy()
-            df_hist_t["Precio"] = pd.to_numeric(df_hist_t["Precio"], errors="coerce")
-            df_hist_t = df_hist_t.dropna(subset=["Precio"]).copy()
-            df_hist_t["MA7"] = df_hist_t["Precio"].rolling(window=7).mean()
-            df_hist_t["MA30"] = df_hist_t["Precio"].rolling(window=min(30, len(df_hist_t))).mean()
-
-            delta = df_hist_t["Precio"].diff()
-            ganancia = delta.clip(lower=0).rolling(window=14).mean()
-            perdida = (-delta.clip(upper=0)).rolling(window=14).mean()
-            rs = ganancia / perdida.replace(0, 1e-9)
-            df_hist_t["RSI"] = 100 - (100 / (1 + rs))
-
-            fig_ma = go.Figure()
-            fig_ma.add_trace(go.Scatter(x=df_hist_t["Fecha"], y=df_hist_t["Precio"], name="Precio", line=dict(color="#5eead4", width=2.5)))
-            fig_ma.add_trace(go.Scatter(x=df_hist_t["Fecha"], y=df_hist_t["MA7"], name="MA 7 días", line=dict(color="#fbbf24", width=2)))
-            fig_ma.add_trace(go.Scatter(x=df_hist_t["Fecha"], y=df_hist_t["MA30"], name="MA 30 días", line=dict(color="#f87171", width=2)))
-            fig_ma = configure_plotly(fig_ma)
-            fig_ma.update_layout(title=f"Precio y medias móviles — {activo_tecnico}", hovermode="x unified")
-            st.plotly_chart(fig_ma, use_container_width=True)
+            st.plotly_chart(fig_price, use_container_width=True)
 
             fig_rsi = go.Figure()
-            fig_rsi.add_trace(go.Scatter(x=df_hist_t["Fecha"], y=df_hist_t["RSI"], name="RSI", line=dict(color="#38bdf8", width=2.5), fill="tozeroy", fillcolor="rgba(56,189,248,0.08)"))
-            fig_rsi.add_hline(y=70, line_dash="dash", line_color="rgba(248,113,113,0.9)", annotation_text="Sobrecompra (70)")
-            fig_rsi.add_hline(y=30, line_dash="dash", line_color="rgba(52,211,153,0.9)", annotation_text="Sobreventa (30)")
-            fig_rsi = configure_plotly(fig_rsi)
-            fig_rsi.update_layout(title="Índice de Fuerza Relativa (RSI)", yaxis=dict(range=[0, 100]), hovermode="x unified")
+            fig_rsi.add_trace(go.Scatter(
+                x=hist["Fecha"], y=hist["RSI"], name="RSI",
+                mode="lines", line={"color": BLUE, "width": 2.5, "shape": "spline"},
+                fill="tozeroy", fillcolor="rgba(86,184,245,.08)",
+                hovertemplate="<b>%{x|%d %b}</b><br>RSI: %{y:.1f}<extra></extra>",
+            ))
+            fig_rsi.add_hrect(y0=30, y1=70, fillcolor="rgba(85,230,208,.045)", line_width=0, layer="below")
+            fig_rsi.add_hline(y=70, line_dash="dash", line_color=RED, annotation_text="Sobrecompra · 70", annotation_position="top right")
+            fig_rsi.add_hline(y=30, line_dash="dash", line_color=GREEN, annotation_text="Sobreventa · 30", annotation_position="bottom right")
+            style_chart(fig_rsi)
+            fig_rsi.update_layout(title="Índice de fuerza relativa (RSI)", yaxis={"range": [0, 100], "title": "RSI"}, height=300, showlegend=False)
             st.plotly_chart(fig_rsi, use_container_width=True)
+            st.caption("Las medias móviles del inicio del período usan los datos disponibles hasta completar su ventana.")
 
-            rsi_actual = df_hist_t["RSI"].dropna().iloc[-1]
-            ma7_actual = df_hist_t["MA7"].dropna().iloc[-1]
-            ma30_actual = df_hist_t["MA30"].dropna().iloc[-1] if not df_hist_t["MA30"].dropna().empty else None
-            precio_actual_t = df_hist_t["Precio"].iloc[-1]
+# ── Comparison ────────────────────────────────────────────────────────────────
+with compare_tab:
+    st.subheader("Comparador de rendimiento")
+    st.markdown('<div class="section-note">Compara el rendimiento porcentual desde una base común de 100.</div>', unsafe_allow_html=True)
+    names = list(coin_map)
+    c1, c2, c3 = st.columns([1, 1, .7])
+    with c1:
+        compare_a = st.selectbox("Activo A", names, index=0, key="compare_a")
+    with c2:
+        compare_b = st.selectbox("Activo B", names, index=min(1, len(names)-1), key="compare_b")
+    with c3:
+        compare_days = st.selectbox("Período", [7, 14, 30, 60, 90], index=2, key="compare_days")
 
-            col_s1, col_s2, col_s3 = st.columns(3)
-            with col_s1:
-                st.metric("RSI Actual", f"{rsi_actual:.1f}")
-                if rsi_actual >= 70:
-                    st.error("Zona de sobrecompra")
-                elif rsi_actual <= 30:
-                    st.success("Zona de sobreventa")
-                else:
-                    st.info("Neutral")
-            with col_s2:
-                st.metric("MA7 vs. Precio", f"${ma7_actual:,.2f}")
-                if precio_actual_t > ma7_actual:
-                    st.success("Tendencia alcista de corto plazo")
-                else:
-                    st.error("Presión bajista")
-            with col_s3:
-                if ma30_actual:
-                    st.metric("MA30", f"${ma30_actual:,.2f}")
-                    if ma7_actual > ma30_actual:
-                        st.success("Cruce dorado")
-                    else:
-                        st.error("Cruce de muerte")
-                else:
-                    st.info("Datos insuficientes")
-
-    with tab_ia:
-        st.subheader("Módulo de inteligencia artificial")
-        if st.button("Generar informe financiero", use_container_width=True):
-            fecha_servidor = datetime.now().strftime("%d/%m/%Y a las %H:%M:%S")
-            activo_top_ganador = df.loc[df["price_change_percentage_24h"].idxmax()]
-            activo_top_perdedor = df.loc[df["price_change_percentage_24h"].idxmin()]
-            promedio_variacion_mercado = df["price_change_percentage_24h"].mean()
-            contexto = "\n".join([
-                f"- {r['name']} ({r['symbol'].upper()}): ${r['current_price']:,} (Var 24h: {r['price_change_percentage_24h']:.2f}%)"
-                for _, r in df.iterrows()
-            ])
-            prompt = f"""
-            Fecha y hora: {fecha_servidor}
-            Mayor rendimiento diario: {activo_top_ganador['name']} ({activo_top_ganador['price_change_percentage_24h']:.2f}%)
-            Mayor contracción diaria: {activo_top_perdedor['name']} ({activo_top_perdedor['price_change_percentage_24h']:.2f}%)
-            Variación promedio del mercado: {promedio_variacion_mercado:.2f}%
-
-            Activos analizados:
-            {contexto}
-            """
-            with st.spinner("Procesando reporte..."):
-                resultado = llamar_gemini(prompt=prompt, system_instruction="Actúa como un analista financiero senior. Responde en español y con enfoque en tendencias y riesgos.")
-                if resultado:
-                    st.session_state["reporte_institucional"] = resultado
-                    st.success("Informe ejecutado correctamente")
-
-        if st.session_state["reporte_institucional"]:
-            st.write("---")
-            st.markdown("### Reporte ejecutivo")
-            st.info(st.session_state["reporte_institucional"])
-
-    with tab_chat:
-        st.subheader("Chat de mercado")
-        if st.button("🗑️ Limpiar chat", key="btn_limpiar_chat"):
-            st.session_state["chat_historia"] = []
-            st.rerun()
-
-        contexto_chat = "Datos actuales de mercado (Top 50):\n" + "".join([
-            f"- {r['name']} ({r['symbol'].upper()}): ${r['current_price']:,} | Var 24h: {r['price_change_percentage_24h']:.2f}% | Market Cap: ${r['market_cap']:,}\n"
-            for _, r in df.head(50).iterrows()
-        ])
-
-        chat_container = st.container(height=450)
-        with chat_container:
-            if not st.session_state["chat_historia"]:
-                with st.chat_message("assistant"):
-                    st.write("Hola, soy tu asistente de mercado. Pregúntame por precios, tendencias o comparaciones.")
-            for msg in st.session_state["chat_historia"]:
-                with st.chat_message(msg["role"]):
-                    st.write(msg["content"])
-
-        if pregunta_usuario := st.chat_input("Escribe tu consulta sobre criptomonedas..."):
-            with chat_container:
-                with st.chat_message("user"):
-                    st.write(pregunta_usuario)
-
-            st.session_state["chat_historia"].append({"role": "user", "content": pregunta_usuario})
-            contenido_gemini = "\n".join([
-                f"{'Usuario' if m['role'] == 'user' else 'Asistente'}: {m['content']}" for m in st.session_state["chat_historia"]
-            ])
-
-            with chat_container:
-                with st.chat_message("assistant"):
-                    with st.spinner("Procesando tu consulta..."):
-                        respuesta_ia = llamar_gemini(
-                            prompt=contenido_gemini,
-                            system_instruction=(
-                                "Eres un asistente experto en criptomonedas. Responde siempre en español y de forma clara. "
-                                f"Tienes acceso a estos datos actuales:\n\n{contexto_chat}"
-                            ),
-                        )
-                        if respuesta_ia:
-                            st.write(respuesta_ia)
-                            st.session_state["chat_historia"].append({"role": "assistant", "content": respuesta_ia})
-
-    with tab_comparador:
-        st.subheader("Comparador de criptomonedas")
-        lista_activos = df["name"].tolist()
-        col_c1, col_c2 = st.columns(2)
-        with col_c1:
-            cripto_a = st.selectbox("Activo A:", lista_activos, index=0, key="comp_a")
-        with col_c2:
-            cripto_b = st.selectbox("Activo B:", lista_activos, index=1, key="comp_b")
-
-        dias_comp = st.select_slider("Período:", options=[7, 14, 30, 60, 90], value=30)
-
-        if st.button("Comparar activos", use_container_width=True, key="btn_comparar"):
-            id_dict = dict(zip(df["name"], df["id"]))
-            with st.spinner(f"Cargando datos de {cripto_a} y {cripto_b}..."):
-                df_a = obtener_historico_activo(coin_id=id_dict[cripto_a], days=dias_comp)
-                df_b = obtener_historico_activo(coin_id=id_dict[cripto_b], days=dias_comp)
-
-            row_a = df[df["name"] == cripto_a].iloc[0]
-            row_b = df[df["name"] == cripto_b].iloc[0]
-
-            st.write("---")
-            st.markdown("#### Métricas comparativas")
-            col_m0, col_m1, col_m2 = st.columns(3)
-            with col_m0:
-                st.markdown("**Indicador**")
-                st.markdown("Precio Actual")
-                st.markdown("Variación 24h")
-                st.markdown("Market Cap")
-            with col_m1:
-                st.markdown(f"**{cripto_a}**")
-                st.markdown(f"${row_a['current_price']:,.4f}")
-                st.markdown(f"{row_a['price_change_percentage_24h']:.2f}%")
-                st.markdown(f"${row_a['market_cap']:,.0f}")
-            with col_m2:
-                st.markdown(f"**{cripto_b}**")
-                st.markdown(f"${row_b['current_price']:,.4f}")
-                st.markdown(f"{row_b['price_change_percentage_24h']:.2f}%")
-                st.markdown(f"${row_b['market_cap']:,.0f}")
-
-            if df_a is not None and df_b is not None:
-                df_a["Normalizado"] = (df_a["Precio"] / df_a["Precio"].iloc[0]) * 100
-                df_b["Normalizado"] = (df_b["Precio"] / df_b["Precio"].iloc[0]) * 100
-
-                fig_comp = go.Figure()
-                fig_comp.add_trace(go.Scatter(x=df_a["Fecha"], y=df_a["Normalizado"], name=cripto_a, line=dict(color="#5eead4", width=2.5)))
-                fig_comp.add_trace(go.Scatter(x=df_b["Fecha"], y=df_b["Normalizado"], name=cripto_b, line=dict(color="#f97316", width=2.5)))
-                fig_comp.add_hline(y=100, line_dash="dot", line_color="rgba(148,163,184,0.8)", annotation_text="Base 100")
-                fig_comp = configure_plotly(fig_comp)
-                fig_comp.update_layout(title="Comparación de rendimiento relativo", hovermode="x unified", yaxis_title="Rendimiento relativo (%)")
-                st.plotly_chart(fig_comp, use_container_width=True)
-
-                rend_a = df_a["Normalizado"].iloc[-1] - 100
-                rend_b = df_b["Normalizado"].iloc[-1] - 100
-                prompt_comp = f"""
-                Compara estos dos activos cripto en base a sus datos actuales y rendimiento en los últimos {dias_comp} días:
-                {cripto_a}: precio ${row_a['current_price']:,} | variación 24h: {row_a['price_change_percentage_24h']:.2f}% | market cap: ${row_a['market_cap']:,} | rendimiento período: {rend_a:.2f}%
-                {cripto_b}: precio ${row_b['current_price']:,} | variación 24h: {row_b['price_change_percentage_24h']:.2f}% | market cap: ${row_b['market_cap']:,} | rendimiento período: {rend_b:.2f}%
-                Emite un análisis breve (máximo 150 palabras) indicando cuál presenta mejor perspectiva de corto plazo y por qué.
-                Responde en español y de forma directa.
-                """
-                with st.spinner("Generando veredicto..."):
-                    veredicto = llamar_gemini(prompt=prompt_comp)
-                    if veredicto:
-                        st.info(veredicto)
-            else:
-                st.error("No se pudieron obtener datos históricos para uno o ambos activos.")
-
-    with tab_simulador:
-        st.subheader("Simulador de inversiones")
-        precios_dict = dict(zip(df["name"], df["current_price"]))
-        simbolos_dict = dict(zip(df["name"], df["symbol"]))
-
-        col_tx1, col_tx2, col_tx3 = st.columns(3)
-        with col_tx1:
-            crypto_tx = st.selectbox("Seleccione activo:", df["name"].tolist(), key="sb_crypto_tx")
-        with col_tx2:
-            accion_tx = st.selectbox("Tipo de operación:", ["Comprar", "Vender"], key="sb_accion_tx")
-        with col_tx3:
-            cantidad_tx = st.number_input("Cantidad:", min_value=0.0, step=0.01, key="num_cant_tx")
-
-        if st.button("Ejecutar transacción", use_container_width=True):
-            precio_unitario = precios_dict[crypto_tx]
-            costo_total = precio_unitario * cantidad_tx
-            if accion_tx == "Comprar":
-                if costo_total > st.session_state["saldo_cash"]:
-                    st.error("Fondos insuficientes.")
-                elif cantidad_tx <= 0:
-                    st.error("La cantidad debe ser mayor a cero.")
-                else:
-                    st.session_state["saldo_cash"] -= costo_total
-                    st.session_state["billetera"][crypto_tx] = st.session_state["billetera"].get(crypto_tx, 0.0) + cantidad_tx
-                    st.success(f"Compra ejecutada: {cantidad_tx} {simbolos_dict[crypto_tx].upper()}.")
-                    st.rerun()
-            elif accion_tx == "Vender":
-                cantidad_poseida = st.session_state["billetera"].get(crypto_tx, 0.0)
-                if cantidad_tx > cantidad_poseida:
-                    st.error("Cantidad insuficiente en cartera.")
-                elif cantidad_tx <= 0:
-                    st.error("La cantidad debe ser mayor a cero.")
-                else:
-                    st.session_state["saldo_cash"] += costo_total
-                    st.session_state["billetera"][crypto_tx] = cantidad_poseida - cantidad_tx
-                    if st.session_state["billetera"][crypto_tx] <= 0:
-                        del st.session_state["billetera"][crypto_tx]
-                    st.success(f"Venta ejecutada: {cantidad_tx} {simbolos_dict[crypto_tx].upper()}.")
-                    st.rerun()
-
-        valor_criptos_total = 0.0
-        filas_portafolio = []
-        for crypto, cant in st.session_state["billetera"].items():
-            if cant > 0:
-                p_actual = precios_dict.get(crypto, 0.0)
-                v_posicion = cant * p_actual
-                valor_criptos_total += v_posicion
-                filas_portafolio.append({"Activo": crypto, "Unidades": cant, "Precio de mercado (USD)": f"${p_actual:,.2f}", "Valorización (USD)": v_posicion})
-
-        patrimonio_neto_total = st.session_state["saldo_cash"] + valor_criptos_total
-        roi_acumulado = ((patrimonio_neto_total - 100000.0) / 100000.0) * 100
-
-        st.write("---")
-        st.markdown("#### Estado patrimonial")
-        col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
-        with col_kpi1:
-            st.metric("Capital disponible", f"${st.session_state['saldo_cash']:,.2f} USD")
-        with col_kpi2:
-            st.metric("Criptoactivos", f"${valor_criptos_total:,.2f} USD")
-        with col_kpi3:
-            st.metric("Patrimonio neto", f"${patrimonio_neto_total:,.2f} USD", delta=f"{roi_acumulado:.2f}% ROI")
-
-        if filas_portafolio:
-            df_port = pd.DataFrame(filas_portafolio)
-            col_tab, col_pie = st.columns([0.55, 0.45])
-            with col_tab:
-                st.markdown("##### Desglose de posiciones")
-                df_mostrar = df_port.copy()
-                df_mostrar["Valorización (USD)"] = df_mostrar["Valorización (USD)"].map(lambda x: f"${x:,.2f}")
-                st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
-            with col_pie:
-                st.markdown("##### Distribución")
-                fila_cash = pd.DataFrame([{"Activo": "Efectivo (Cash)", "Unidades": 1.0, "Precio de mercado (USD)": "N/A", "Valorización (USD)": st.session_state["saldo_cash"]}])
-                df_pie = pd.concat([df_port, fila_cash], ignore_index=True)
-                fig_pie = px.pie(df_pie, values="Valorización (USD)", names="Activo", template="plotly_dark")
-                fig_pie.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig_pie, use_container_width=True)
+    if st.button("Comparar activos", type="primary"):
+        if compare_a == compare_b:
+            st.info("Elige dos activos distintos para compararlos.")
         else:
-            st.info("La cartera se encuentra vacía. Usa el panel superior para comprar activos.")
-else:
-    st.error("Error crítico: No fue posible establecer comunicación con CoinGecko.")
+            with st.spinner("Descargando ambos historiales..."):
+                h_a = load_history(coin_map[compare_a], compare_days)
+                h_b = load_history(coin_map[compare_b], compare_days)
+            if h_a is None or h_b is None or h_a.empty or h_b.empty:
+                st.warning("No se pudieron obtener ambos historiales para realizar la comparación.")
+            else:
+                traces = []
+                for name, hist, color in [(compare_a, h_a, TEAL), (compare_b, h_b, AMBER)]:
+                    hist = hist.dropna(subset=["Precio"]).copy()
+                    hist["Precio"] = pd.to_numeric(hist["Precio"], errors="coerce")
+                    hist = hist.dropna(subset=["Precio"])
+                    if hist.empty or hist["Precio"].iloc[0] == 0:
+                        continue
+                    hist["Base 100"] = hist["Precio"] / hist["Precio"].iloc[0] * 100
+                    traces.append((name, hist, color))
+                if len(traces) < 2:
+                    st.warning("No hay suficientes precios válidos para normalizar la comparación.")
+                else:
+                    fig = go.Figure()
+                    for name, hist, color in traces:
+                        fig.add_trace(go.Scatter(x=hist["Fecha"], y=hist["Base 100"], name=name, mode="lines", line={"color": color, "width": 3, "shape": "spline"}, hovertemplate="%{x|%d %b}<br>Base 100: %{y:.2f}<extra></extra>"))
+                    fig.add_hline(y=100, line_dash="dot", line_color="rgba(147,175,194,.55)", annotation_text="Punto de partida")
+                    style_chart(fig)
+                    fig.update_layout(title=f"Rendimiento relativo · últimos {compare_days} días", yaxis_title="Índice (base 100)", hovermode="x unified", height=460)
+                    st.plotly_chart(fig, use_container_width=True)
+
+# ── AI assistant ──────────────────────────────────────────────────────────────
+with ai_tab:
+    st.subheader("Asistente de mercado")
+    st.markdown('<div class="section-note">Consulta los movimientos actuales. La respuesta es informativa y no constituye asesoría financiera.</div>', unsafe_allow_html=True)
+    if "market_chat" not in st.session_state:
+        st.session_state["market_chat"] = []
+    for message in st.session_state["market_chat"]:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+    prompt = st.chat_input("Pregunta sobre el mercado, tendencias o activos…")
+    if prompt:
+        st.session_state["market_chat"].append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        top_context = market.head(35)
+        context = "\n".join(
+            f"{row['name']} ({row['symbol_upper']}): USD {row['current_price']}, variación 24h {row['price_change_percentage_24h']}%"
+            for _, row in top_context.iterrows()
+        )
+        with st.chat_message("assistant"):
+            with st.spinner("Analizando datos..."):
+                answer = ask_gemini(
+                    f"Datos recientes del mercado:\n{context}\n\nConsulta: {prompt}",
+                    "Responde en español, de forma clara y prudente. Aclara que los datos son una fotografía del mercado y que no ofreces asesoría financiera personalizada.",
+                )
+            if answer:
+                st.markdown(answer)
+                st.session_state["market_chat"].append({"role": "assistant", "content": answer})
