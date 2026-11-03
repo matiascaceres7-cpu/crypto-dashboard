@@ -13,13 +13,13 @@ from coingecko_api import obtener_historico_activo, obtener_top_criptos
 
 load_dotenv()
 st.set_page_config(
-    page_title="NovaCrypto | Terminal de mercado",
+    page_title="NovaCrypto | Market Intelligence",
     page_icon="₿",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ── Palette and chart helpers ─────────────────────────────────────────────────
+# Palette
 BG = "#071521"
 PANEL = "#0D2131"
 PANEL_ALT = "#102A3D"
@@ -70,25 +70,23 @@ def get_gemini_client() -> Optional[genai.Client]:
 def ask_gemini(prompt: str, instruction: Optional[str] = None) -> Optional[str]:
     client = get_gemini_client()
     if client is None:
-        st.warning("La función de IA requiere GEMINI_API_KEY en Streamlit Secrets.")
-        return None
+        return "No encuentro GEMINI_API_KEY en Streamlit Secrets. Revisa la configuración de la app."
     try:
         from google.genai import types
+
         config = types.GenerateContentConfig(system_instruction=instruction) if instruction else None
         args = {"model": "gemini-2.5-flash", "contents": prompt}
         if config:
             args["config"] = config
         response = client.models.generate_content(**args)
-        return getattr(response, "text", None)
+        return getattr(response, "text", None) or "No recibí texto de respuesta. Inténtalo otra vez."
     except Exception as exc:
         if "429" in str(exc) or "RESOURCE_EXHAUSTED" in str(exc):
-            st.warning("La IA alcanzó su límite temporal. Espera un momento y vuelve a intentar.")
-        else:
-            st.error("No se pudo completar la solicitud a Gemini. Revisa los logs de la app.")
-        return None
+            return "Alcancé el límite temporal de consultas. Espera un momento y vuelve a intentar."
+        return "No pude completar la consulta. Comprueba los logs de Streamlit y vuelve a intentarlo."
 
 
-# ── Visual system ─────────────────────────────────────────────────────────────
+# Visual styling, including a fixed, responsive chatbot launcher and panel.
 st.markdown(
     f"""
     <style>
@@ -99,7 +97,7 @@ st.markdown(
         color: {TEXT};
       }}
       .stApp {{ background: transparent; }}
-      .main .block-container {{ max-width: 1480px; padding: 1.5rem 2.2rem 3rem; }}
+      .main .block-container {{ max-width: 1480px; padding: 1.5rem 2.2rem 5rem; }}
       [data-testid="stSidebar"] {{ background: linear-gradient(180deg,#091925,#0c2030) !important; border-right: 1px solid rgba(147,175,194,.14); }}
       [data-testid="stSidebar"] * {{ color: {TEXT}; }}
       h1,h2,h3 {{ letter-spacing: -.035em; }}
@@ -126,14 +124,38 @@ st.markdown(
       .section-note {{ color:{MUTED}; font-size:.9rem; margin-top:-.25rem; margin-bottom:1rem; }}
       .stButton > button {{ border-radius:12px; border:1px solid rgba(85,230,208,.28); background:linear-gradient(135deg,rgba(85,230,208,.16),rgba(86,184,245,.12)); color:{TEXT}; font-weight:700; transition:all .18s ease; }}
       .stButton > button:hover {{ border-color:{TEAL}; color:{TEAL}; transform:translateY(-1px); }}
-      @media(max-width:700px) {{ .main .block-container {{ padding:1rem .8rem 2rem; }} .hero {{ padding:1.1rem; }} }}
+
+      /* Floating AI bot button: fixed to the viewport, with a gentle idle motion. */
+      .st-key-ai_fab {{ position:fixed !important; right:26px !important; bottom:24px !important; z-index:10001 !important; width:74px !important; height:74px !important; }}
+      .st-key-ai_fab [data-testid="stButton"] {{ width:74px !important; height:74px !important; }}
+      .st-key-ai_fab button {{ width:68px !important; height:68px !important; min-height:68px !important; padding:0 !important; border-radius:50% !important; border:2px solid rgba(85,230,208,.9) !important; background:radial-gradient(circle at 30% 25%,#244e66,#102a3d 72%) !important; color:#eaffff !important; font-size:31px !important; box-shadow:0 0 0 6px rgba(85,230,208,.09),0 12px 35px rgba(0,0,0,.42),0 0 26px rgba(85,230,208,.24) !important; animation:bot-float 3.2s ease-in-out infinite; }}
+      .st-key-ai_fab button:hover {{ transform:translateY(-4px) scale(1.04) !important; box-shadow:0 0 0 8px rgba(85,230,208,.12),0 16px 40px rgba(0,0,0,.46),0 0 34px rgba(85,230,208,.4) !important; }}
+      .st-key-ai_fab button p {{ font-size:0 !important; }}
+      .st-key-ai_fab button p:before {{ content:"🤖"; font-size:31px; }}
+      .st-key-ai_fab button:after {{ content:""; position:absolute; width:10px;height:10px;border-radius:50%;right:3px;top:3px;background:#4DDBA5;border:2px solid #0D2131; }}
+      @keyframes bot-float {{ 0%,100% {{ transform:translateY(0); }} 50% {{ transform:translateY(-5px); }} }}
+
+      /* Chat panel floats above the bot and remains usable on smaller screens. */
+      .st-key-ai_panel {{ position:fixed !important; right:27px !important; bottom:108px !important; z-index:10000 !important; width:min(390px,calc(100vw - 32px)) !important; max-width:390px !important; background:linear-gradient(155deg,#102a3d,#091b29) !important; border:1px solid rgba(85,230,208,.32) !important; border-radius:22px !important; padding:15px 16px 12px !important; box-shadow:0 24px 70px rgba(0,0,0,.56),0 0 32px rgba(85,230,208,.10) !important; }}
+      .st-key-ai_panel [data-testid="stVerticalBlock"] {{ gap:.45rem; }}
+      .st-key-ai_panel [data-testid="stChatMessage"] {{ background:rgba(255,255,255,.035); border:1px solid rgba(147,175,194,.10); border-radius:14px; padding:.55rem .7rem; }}
+      .st-key-ai_panel [data-testid="stChatMessage"] p {{ font-size:.9rem; }}
+      .st-key-ai_panel [data-testid="stTextInput"] input {{ border-radius:12px !important; }}
+      .st-key-ai_panel [data-testid="stFormSubmitButton"] button {{ min-height:42px; }}
+      .st-key-ai_panel [data-testid="stButton"] button {{ min-height:38px; }}
+      @media(max-width:700px) {{
+        .main .block-container {{ padding:1rem .8rem 6rem; }}
+        .hero {{ padding:1.1rem; }}
+        .st-key-ai_fab {{ right:16px !important; bottom:16px !important; }}
+        .st-key-ai_panel {{ right:12px !important; bottom:94px !important; width:calc(100vw - 24px) !important; max-width:none !important; }}
+      }}
+      @media(prefers-reduced-motion:reduce) {{ .st-key-ai_fab button {{ animation:none !important; }} }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-
-# ── Header and navigation ─────────────────────────────────────────────────────
+# Sidebar and page header
 with st.sidebar:
     st.markdown(
         '<div class="brand"><div class="brand-icon">₿</div><div><div class="brand-name">NOVA / CRYPTO</div><div class="brand-caption">Market intelligence</div></div></div>',
@@ -172,7 +194,7 @@ if market.empty:
 market["symbol_upper"] = market["symbol"].str.upper()
 valid_change = market.dropna(subset=["price_change_percentage_24h"])
 
-# Dashboard summary cards
+# Summary metrics
 bitcoin_rows = market[market["symbol_upper"] == "BTC"]
 ethereum_rows = market[market["symbol_upper"] == "ETH"]
 col_btc, col_eth, col_change, col_cap = st.columns(4)
@@ -188,9 +210,8 @@ with col_cap:
     cap = market["market_cap"].sum(min_count=1)
     st.metric("Capitalización (Top list)", f"${cap:,.0f}" if pd.notna(cap) else "—")
 
-market_tab, technical_tab, compare_tab, ai_tab = st.tabs(["◈  Mercado", "⌁  Análisis técnico", "⇄  Comparador", "✦  Asistente IA"])
+market_tab, technical_tab, compare_tab = st.tabs(["◈  Mercado", "⌁  Análisis técnico", "⇄  Comparador"])
 
-# ── Market view ───────────────────────────────────────────────────────────────
 with market_tab:
     st.subheader("Pulso del mercado")
     st.markdown('<div class="section-note">Activos destacados y variación porcentual de las últimas 24 horas.</div>', unsafe_allow_html=True)
@@ -199,26 +220,22 @@ with market_tab:
         worst = valid_change.loc[valid_change["price_change_percentage_24h"].idxmin()]
         avg_move = valid_change["price_change_percentage_24h"].mean()
         a, b, c = st.columns(3)
-        with a:
-            st.metric("Mayor alza · 24 h", f"{best['name']}  {best['price_change_percentage_24h']:+.2f}%")
-        with b:
-            st.metric("Mayor caída · 24 h", f"{worst['name']}  {worst['price_change_percentage_24h']:+.2f}%")
-        with c:
-            st.metric("Variación media", f"{avg_move:+.2f}%")
+        a.metric("Mayor alza · 24 h", f"{best['name']}  {best['price_change_percentage_24h']:+.2f}%")
+        b.metric("Mayor caída · 24 h", f"{worst['name']}  {worst['price_change_percentage_24h']:+.2f}%")
+        c.metric("Variación media", f"{avg_move:+.2f}%")
 
     st.subheader("Mapa de rendimiento")
     st.markdown('<div class="section-note">El tamaño representa capitalización; el color representa variación en 24 h.</div>', unsafe_allow_html=True)
     treemap_df = market.dropna(subset=["market_cap", "price_change_percentage_24h"]).copy()
     treemap_df = treemap_df[treemap_df["market_cap"] > 0]
     if not treemap_df.empty:
-        max_abs = float(treemap_df["price_change_percentage_24h"].abs().quantile(0.95))
-        max_abs = max(max_abs, 1.0)
+        max_abs = max(float(treemap_df["price_change_percentage_24h"].abs().quantile(.95)), 1.0)
         fig_tree = px.treemap(
             treemap_df,
             path=[px.Constant("Mercado"), "name"],
             values="market_cap",
             color="price_change_percentage_24h",
-            color_continuous_scale=[[0, "#E85D75"], [0.5, "#243B53"], [1, "#45D6A4"]],
+            color_continuous_scale=[[0, "#E85D75"], [.5, "#243B53"], [1, "#45D6A4"]],
             range_color=[-max_abs, max_abs],
             custom_data=["symbol_upper", "current_price", "price_change_percentage_24h", "market_cap"],
             labels={"price_change_percentage_24h": "Variación 24 h", "market_cap": "Capitalización"},
@@ -226,10 +243,9 @@ with market_tab:
         fig_tree.update_traces(
             texttemplate="<b>%{label}</b><br>%{customdata[0]} · %{customdata[2]:+.2f}%",
             hovertemplate="<b>%{label}</b> (%{customdata[0]})<br>Precio: $%{customdata[1]:,.4g}<br>Variación 24 h: %{customdata[2]:+.2f}%<br>Capitalización: $%{customdata[3]:,.0f}<extra></extra>",
-            marker={"line": {"width": 1.2, "color": "#071521"}},
-            root_color="#102A3D",
+            marker={"line": {"width": 1.2, "color": BG}}, root_color=PANEL_ALT,
         )
-        fig_tree.update_coloraxes(colorbar={"title": {"text": "Variación 24 h (%)"}, "ticksuffix": "%", "len": 0.78})
+        fig_tree.update_coloraxes(colorbar={"title": {"text": "Variación 24 h (%)"}, "ticksuffix": "%", "len": .78})
         fig_tree.update_layout(**PLOTLY_THEME, height=610)
         st.plotly_chart(fig_tree, use_container_width=True)
     else:
@@ -238,28 +254,22 @@ with market_tab:
     st.subheader("Listado de activos")
     display_df = market[["name", "symbol_upper", "current_price", "market_cap", "price_change_percentage_24h"]].copy()
     display_df.columns = ["Activo", "Ticker", "Precio USD", "Capitalización USD", "Variación 24 h (%)"]
-    st.dataframe(
-        display_df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Precio USD": st.column_config.NumberColumn(format="$%.4f"),
-            "Capitalización USD": st.column_config.NumberColumn(format="$%.0f"),
-            "Variación 24 h (%)": st.column_config.NumberColumn(format="%.2f%%"),
-        },
-    )
+    st.dataframe(display_df, use_container_width=True, hide_index=True, column_config={
+        "Precio USD": st.column_config.NumberColumn(format="$%.4f"),
+        "Capitalización USD": st.column_config.NumberColumn(format="$%.0f"),
+        "Variación 24 h (%)": st.column_config.NumberColumn(format="%.2f%%"),
+    })
 
-# ── Technical analysis ───────────────────────────────────────────────────────
+coin_map = dict(zip(market["name"], market["id"]))
+
 with technical_tab:
     st.subheader("Análisis técnico")
     st.markdown('<div class="section-note">Precio, medias móviles y RSI calculados sobre el historial devuelto por CoinGecko.</div>', unsafe_allow_html=True)
-    coin_map = dict(zip(market["name"], market["id"]))
     col_coin, col_days = st.columns([2, 1])
     with col_coin:
         selected_name = st.selectbox("Activo", list(coin_map), key="technical_coin")
     with col_days:
-        days = st.selectbox("Ventana histórica", [30, 60, 90], index=0, key="technical_days")
-
+        days = st.selectbox("Ventana histórica", [30, 60, 90], key="technical_days")
     with st.spinner(f"Cargando historial de {selected_name}..."):
         history = load_history(coin_map[selected_name], days)
 
@@ -273,16 +283,13 @@ with technical_tab:
         if hist.empty:
             st.warning("El historial recibido no contiene precios válidos.")
         else:
-            hist["MA7"] = hist["Precio"].rolling(window=7, min_periods=1).mean()
-            hist["MA30"] = hist["Precio"].rolling(window=30, min_periods=1).mean()
+            hist["MA7"] = hist["Precio"].rolling(7, min_periods=1).mean()
+            hist["MA30"] = hist["Precio"].rolling(30, min_periods=1).mean()
             delta = hist["Precio"].diff()
-            gains = delta.clip(lower=0).rolling(window=14, min_periods=14).mean()
-            losses = (-delta.clip(upper=0)).rolling(window=14, min_periods=14).mean()
-            rs = gains / losses.replace(0, pd.NA)
-            hist["RSI"] = 100 - 100 / (1 + rs)
-
-            last_price = hist["Precio"].iloc[-1]
-            first_price = hist["Precio"].iloc[0]
+            gains = delta.clip(lower=0).rolling(14, min_periods=14).mean()
+            losses = (-delta.clip(upper=0)).rolling(14, min_periods=14).mean()
+            hist["RSI"] = 100 - 100 / (1 + gains / losses.replace(0, float("nan")))
+            last_price, first_price = hist["Precio"].iloc[-1], hist["Precio"].iloc[0]
             period_return = ((last_price / first_price) - 1) * 100 if first_price else float("nan")
             m1, m2, m3 = st.columns(3)
             m1.metric("Precio más reciente", f"${last_price:,.4f}")
@@ -291,37 +298,15 @@ with technical_tab:
             m3.metric("RSI", f"{valid_rsi.iloc[-1]:.1f}" if not valid_rsi.empty else "Calculando…")
 
             fig_price = go.Figure()
-            fig_price.add_trace(go.Scatter(
-                x=hist["Fecha"], y=hist["Precio"], name="Precio",
-                mode="lines", line={"color": TEAL, "width": 3.2, "shape": "spline"},
-                fill="tozeroy", fillcolor="rgba(85,230,208,.075)",
-                hovertemplate="<b>%{x|%d %b %Y}</b><br>Precio: $%{y:,.4f}<extra></extra>",
-            ))
-            fig_price.add_trace(go.Scatter(
-                x=hist["Fecha"], y=hist["MA7"], name="Media móvil · 7 períodos",
-                mode="lines", line={"color": AMBER, "width": 2.2, "shape": "spline"},
-                hovertemplate="MA 7: $%{y:,.4f}<extra></extra>",
-            ))
-            fig_price.add_trace(go.Scatter(
-                x=hist["Fecha"], y=hist["MA30"], name="Media móvil · 30 períodos",
-                mode="lines", line={"color": RED, "width": 2.2, "shape": "spline"},
-                hovertemplate="MA 30: $%{y:,.4f}<extra></extra>",
-            ))
+            fig_price.add_trace(go.Scatter(x=hist["Fecha"], y=hist["Precio"], name="Precio", mode="lines", line={"color": TEAL, "width": 3.2, "shape": "spline"}, fill="tozeroy", fillcolor="rgba(85,230,208,.075)", hovertemplate="<b>%{x|%d %b %Y}</b><br>Precio: $%{y:,.4f}<extra></extra>"))
+            fig_price.add_trace(go.Scatter(x=hist["Fecha"], y=hist["MA7"], name="Media móvil · 7 períodos", mode="lines", line={"color": AMBER, "width": 2.2, "shape": "spline"}, hovertemplate="MA 7: $%{y:,.4f}<extra></extra>"))
+            fig_price.add_trace(go.Scatter(x=hist["Fecha"], y=hist["MA30"], name="Media móvil · 30 períodos", mode="lines", line={"color": RED, "width": 2.2, "shape": "spline"}, hovertemplate="MA 30: $%{y:,.4f}<extra></extra>"))
             style_chart(fig_price)
-            fig_price.update_layout(
-                title={"text": f"{selected_name} <sup>· precio y tendencia</sup>", "x": 0.02, "xanchor": "left"},
-                xaxis_title=None, yaxis_title="Precio (USD)", hovermode="x unified",
-                height=500, legend={"orientation": "h", "y": 1.12, "x": 0.02},
-            )
+            fig_price.update_layout(title={"text": f"{selected_name} <sup>· precio y tendencia</sup>", "x": .02, "xanchor": "left"}, yaxis_title="Precio (USD)", hovermode="x unified", height=500, legend={"orientation": "h", "y": 1.12, "x": .02})
             st.plotly_chart(fig_price, use_container_width=True)
 
             fig_rsi = go.Figure()
-            fig_rsi.add_trace(go.Scatter(
-                x=hist["Fecha"], y=hist["RSI"], name="RSI",
-                mode="lines", line={"color": BLUE, "width": 2.5, "shape": "spline"},
-                fill="tozeroy", fillcolor="rgba(86,184,245,.08)",
-                hovertemplate="<b>%{x|%d %b}</b><br>RSI: %{y:.1f}<extra></extra>",
-            ))
+            fig_rsi.add_trace(go.Scatter(x=hist["Fecha"], y=hist["RSI"], name="RSI", mode="lines", line={"color": BLUE, "width": 2.5, "shape": "spline"}, fill="tozeroy", fillcolor="rgba(86,184,245,.08)", hovertemplate="<b>%{x|%d %b}</b><br>RSI: %{y:.1f}<extra></extra>"))
             fig_rsi.add_hrect(y0=30, y1=70, fillcolor="rgba(85,230,208,.045)", line_width=0, layer="below")
             fig_rsi.add_hline(y=70, line_dash="dash", line_color=RED, annotation_text="Sobrecompra · 70", annotation_position="top right")
             fig_rsi.add_hline(y=30, line_dash="dash", line_color=GREEN, annotation_text="Sobreventa · 30", annotation_position="bottom right")
@@ -330,7 +315,6 @@ with technical_tab:
             st.plotly_chart(fig_rsi, use_container_width=True)
             st.caption("Las medias móviles del inicio del período usan los datos disponibles hasta completar su ventana.")
 
-# ── Comparison ────────────────────────────────────────────────────────────────
 with compare_tab:
     st.subheader("Comparador de rendimiento")
     st.markdown('<div class="section-note">Compara el rendimiento porcentual desde una base común de 100.</div>', unsafe_allow_html=True)
@@ -342,7 +326,6 @@ with compare_tab:
         compare_b = st.selectbox("Activo B", names, index=min(1, len(names)-1), key="compare_b")
     with c3:
         compare_days = st.selectbox("Período", [7, 14, 30, 60, 90], index=2, key="compare_days")
-
     if st.button("Comparar activos", type="primary"):
         if compare_a == compare_b:
             st.info("Elige dos activos distintos para compararlos.")
@@ -373,31 +356,53 @@ with compare_tab:
                     fig.update_layout(title=f"Rendimiento relativo · últimos {compare_days} días", yaxis_title="Índice (base 100)", hovermode="x unified", height=460)
                     st.plotly_chart(fig, use_container_width=True)
 
-# ── AI assistant ──────────────────────────────────────────────────────────────
-with ai_tab:
-    st.subheader("Asistente de mercado")
-    st.markdown('<div class="section-note">Consulta los movimientos actuales. La respuesta es informativa y no constituye asesoría financiera.</div>', unsafe_allow_html=True)
-    if "market_chat" not in st.session_state:
-        st.session_state["market_chat"] = []
-    for message in st.session_state["market_chat"]:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-    prompt = st.chat_input("Pregunta sobre el mercado, tendencias o activos…")
-    if prompt:
-        st.session_state["market_chat"].append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        top_context = market.head(35)
-        context = "\n".join(
-            f"{row['name']} ({row['symbol_upper']}): USD {row['current_price']}, variación 24h {row['price_change_percentage_24h']}%"
-            for _, row in top_context.iterrows()
-        )
-        with st.chat_message("assistant"):
-            with st.spinner("Analizando datos..."):
+# Floating bot launcher. The compact round button stays on-screen while scrolling.
+if "ai_panel_open" not in st.session_state:
+    st.session_state.ai_panel_open = False
+if "market_chat" not in st.session_state:
+    st.session_state.market_chat = []
+
+if st.session_state.ai_panel_open:
+    with st.container(key="ai_panel"):
+        title_col, close_col = st.columns([5, 1])
+        with title_col:
+            st.markdown("### 🤖 Nova · Asistente")
+            st.caption("Consulta datos y tendencias del mercado")
+        with close_col:
+            if st.button("×", key="ai_panel_close", help="Cerrar asistente"):
+                st.session_state.ai_panel_open = False
+                st.rerun()
+
+        messages_box = st.container(height=300, border=False)
+        with messages_box:
+            if not st.session_state.market_chat:
+                with st.chat_message("assistant", avatar="🤖"):
+                    st.markdown("¡Hola! Soy Nova. Pregúntame por los movimientos recientes o por un activo del listado.")
+            for message in st.session_state.market_chat[-12:]:
+                with st.chat_message(message["role"], avatar="🤖" if message["role"] == "assistant" else "🧑"):
+                    st.markdown(message["content"])
+
+        with st.form("floating_ai_chat_form", clear_on_submit=True):
+            prompt = st.text_input("Mensaje", placeholder="Ej.: ¿qué pasó con Bitcoin?", label_visibility="collapsed")
+            send = st.form_submit_button("Enviar  ➤", use_container_width=True)
+
+        if send and prompt.strip():
+            st.session_state.market_chat.append({"role": "user", "content": prompt.strip()})
+            top_context = market.head(35)
+            context = "\n".join(
+                f"{row['name']} ({row['symbol_upper']}): USD {row['current_price']}, variación 24h {row['price_change_percentage_24h']}%"
+                for _, row in top_context.iterrows()
+            )
+            with st.spinner("Nova está pensando..."):
                 answer = ask_gemini(
-                    f"Datos recientes del mercado:\n{context}\n\nConsulta: {prompt}",
-                    "Responde en español, de forma clara y prudente. Aclara que los datos son una fotografía del mercado y que no ofreces asesoría financiera personalizada.",
+                    f"Datos recientes del mercado:\n{context}\n\nConsulta: {prompt.strip()}",
+                    "Responde en español, de forma clara y prudente. Aclara que la información es una fotografía del mercado y no constituye asesoría financiera personalizada.",
                 )
             if answer:
-                st.markdown(answer)
-                st.session_state["market_chat"].append({"role": "assistant", "content": answer})
+                st.session_state.market_chat.append({"role": "assistant", "content": answer})
+            st.rerun()
+else:
+    with st.container(key="ai_fab"):
+        if st.button("🤖", key="ai_fab_button", help="Abrir asistente de IA", use_container_width=True):
+            st.session_state.ai_panel_open = True
+            st.rerun()
