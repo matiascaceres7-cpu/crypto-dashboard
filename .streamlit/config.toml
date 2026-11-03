@@ -1,6 +1,7 @@
 [theme]
-primaryColor = "#FF6B00"          # Naranjo corporativo
-backgroundColor = "#0E1117"       # Gris oscuro analítico para el panel principal
-secondaryBackgroundColor = "#FFFFFF" # Fondo blanco para la barra lateral (donde está el logo)
-textColor = "#FFFFFF"             # Texto blanco por defecto para el panel principal
+base = "dark"
+primaryColor = "#56F0D5"
+backgroundColor = "#061622"
+secondaryBackgroundColor = "#0D2540"
+textColor = "#EDF6FF"
 font = "sans serif"
