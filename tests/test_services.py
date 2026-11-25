@@ -1,9 +1,10 @@
 """Service-level unit and integration tests using an isolated mock provider."""
-
+import pytest
 from datetime import datetime
 from unittest.mock import MagicMock
 
 import pandas as pd
+import pytest  # <-- 1. Importamos pytest
 
 from src.models import CryptoAsset, PricePoint
 from src.services.analysis_strategy import TrendStrategy
@@ -36,7 +37,7 @@ def test_empty_provider_results_preserve_legacy_none_contract():
 def test_service_invokes_configured_strategy_and_indicator_calculation():
     provider = MagicMock()
     service = CryptoMarketService(provider, strategies=[TrendStrategy()])
-    assert service.analyze([100, 105])[0]["percentage_change"] == 5
+    assert service.analyze([100, 105])[0]["percentage_change"] == pytest.approx(5)
     history = pd.DataFrame(
         {"Fecha": [datetime(2024, 1, 1), datetime(2024, 1, 2)], "Precio": [10, 12]}
     )
