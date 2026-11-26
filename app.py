@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import datetime
 from typing import Optional
 
@@ -84,21 +85,32 @@ def ask_gemini(prompt: str, instruction: Optional[str] = None) -> str:
         return "⚠️ No encuentro `GEMINI_API_KEY` en Streamlit Secrets ni en `.env`. Revisa la configuración."
 
     config = types.GenerateContentConfig(system_instruction=instruction) if instruction else None
+    models_to_try = ["gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-2.0-flash"]
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-flash-latest",
-            contents=prompt,
-            config=config,
-        )
-        return getattr(response, "text", None) or "No recibí texto de respuesta. Inténtalo otra vez."
-    except Exception as exc:
-        err_msg = str(exc)
-        if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
-            return "⏳ Alcancé el límite temporal de consultas. Espera un momento y vuelve a intentar."
-        if "403" in err_msg or "API_KEY_INVALID" in err_msg or "PERMISSION_DENIED" in err_msg:
-            return f"🔑 Error de permisos o API Key inválida: `{exc}`"
-        return f"❌ Error al consultar Gemini: `{exc}`"
+    for model_name in models_to_try:
+        for _ in range(2):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=config,
+                )
+                if getattr(response, "text", None):
+                    return response.text
+            except Exception as exc:
+                err_msg = str(exc)
+                if "503" in err_msg or "UNAVAILABLE" in err_msg:
+                    time.sleep(1.5)
+                    continue
+                if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+                    return "⏳ Alcancé el límite temporal de consultas. Espera unos segundos y vuelve a intentar."
+                if "403" in err_msg or "API_KEY_INVALID" in err_msg or "PERMISSION_DENIED" in err_msg:
+                    return f"🔑 Error de permisos o API Key inválida: `{exc}`"
+                if "404" in err_msg or "not found" in err_msg.lower():
+                    break
+                return f"❌ Error al consultar Gemini: `{exc}`"
+
+    return "⏳ Los servidores de IA están saturados en este momento. Intenta enviar tu pregunta nuevamente en unos segundos."
 
 
 # Visual styling, including a fixed, responsive chatbot launcher and panel.
