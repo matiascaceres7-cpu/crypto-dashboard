@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 import streamlit as st
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 
 from coingecko_api import obtener_historico_activo, obtener_top_criptos
 
@@ -60,30 +61,51 @@ def load_history(coin_id: str, days: int):
 
 
 def get_gemini_client() -> Optional[genai.Client]:
-    try:
-        key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
-        return genai.Client(api_key=key) if key else None
-    except Exception:
+    key = os.getenv("GEMINI_API_KEY")
+    if not key:
+        try:
+            if "GEMINI_API_KEY" in st.secrets:
+                key = st.secrets["GEMINI_API_KEY"]
+        except Exception:
+            pass
+
+    if not key or not str(key).strip():
         return None
 
+    return genai.Client(api_key=str(key).strip())
 
-def ask_gemini(prompt: str, instruction: Optional[str] = None) -> Optional[str]:
+
+def ask_gemini(prompt: str, instruction: Optional[str] = None) -> str:
     client = get_gemini_client()
     if client is None:
-        return "No encuentro GEMINI_API_KEY en Streamlit Secrets. Revisa la configuración de la app."
-    try:
-        from google.genai import types
+        return "⚠️ No encuentro `GEMINI_API_KEY` en Streamlit Secrets ni en `.env`. Revisa la configuración."
 
-        config = types.GenerateContentConfig(system_instruction=instruction) if instruction else None
-        args = {"model": "gemini-2.5-flash", "contents": prompt}
-        if config:
-            args["config"] = config
-        response = client.models.generate_content(**args)
-        return getattr(response, "text", None) or "No recibí texto de respuesta. Inténtalo otra vez."
-    except Exception as exc:
-        if "429" in str(exc) or "RESOURCE_EXHAUSTED" in str(exc):
-            return "Alcancé el límite temporal de consultas. Espera un momento y vuelve a intentar."
-        return "No pude completar la consulta. Comprueba los logs de Streamlit y vuelve a intentarlo."
+    config = types.GenerateContentConfig(system_instruction=instruction) if instruction else None
+    models_to_try = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"]
+    last_error = None
+
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=config,
+            )
+            if getattr(response, "text", None):
+                return response.text
+        except Exception as exc:
+            last_error = exc
+            err_msg = str(exc)
+            if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+                return "⏳ Alcancé el límite temporal de consultas. Espera un momento y vuelve a intentar."
+            if "403" in err_msg or "API_KEY_INVALID" in err_msg or "PERMISSION_DENIED" in err_msg:
+                return f"🔑 Error de permisos o API Key inválida: `{exc}`"
+            # Si el error es 404 (modelo no encontrado), prueba el siguiente modelo de la lista
+            if "404" in err_msg or "not found" in err_msg.lower():
+                continue
+            return f"❌ Error al consultar Gemini: `{exc}`"
+
+    return f"❌ Ningún modelo respondió. Último error: `{last_error}`"
 
 
 # Visual styling, including a fixed, responsive chatbot launcher and panel.
@@ -165,7 +187,7 @@ with st.sidebar:
     st.markdown("Datos de mercado, análisis técnico y herramientas de comparación en un solo lugar.")
     st.divider()
     st.caption(f"Actualizado al cargar · {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-    if st.button("↻  Actualizar mercado", use_container_width=True):
+    if st.button("↻  Actualizar mercado", width="stretch"):
         st.cache_data.clear()
         st.rerun()
 
@@ -247,14 +269,14 @@ with market_tab:
         )
         fig_tree.update_coloraxes(colorbar={"title": {"text": "Variación 24 h (%)"}, "ticksuffix": "%", "len": .78})
         fig_tree.update_layout(**PLOTLY_THEME, height=610)
-        st.plotly_chart(fig_tree, use_container_width=True)
+        st.plotly_chart(fig_tree, width="stretch")
     else:
         st.info("No hay suficientes datos de capitalización y variación para dibujar el mapa.")
 
     st.subheader("Listado de activos")
     display_df = market[["name", "symbol_upper", "current_price", "market_cap", "price_change_percentage_24h"]].copy()
     display_df.columns = ["Activo", "Ticker", "Precio USD", "Capitalización USD", "Variación 24 h (%)"]
-    st.dataframe(display_df, use_container_width=True, hide_index=True, column_config={
+    st.dataframe(display_df, width="stretch", hide_index=True, column_config={
         "Precio USD": st.column_config.NumberColumn(format="$%.4f"),
         "Capitalización USD": st.column_config.NumberColumn(format="$%.0f"),
         "Variación 24 h (%)": st.column_config.NumberColumn(format="%.2f%%"),
@@ -303,7 +325,7 @@ with technical_tab:
             fig_price.add_trace(go.Scatter(x=hist["Fecha"], y=hist["MA30"], name="Media móvil · 30 períodos", mode="lines", line={"color": RED, "width": 2.2, "shape": "spline"}, hovertemplate="MA 30: $%{y:,.4f}<extra></extra>"))
             style_chart(fig_price)
             fig_price.update_layout(title={"text": f"{selected_name} <sup>· precio y tendencia</sup>", "x": .02, "xanchor": "left"}, yaxis_title="Precio (USD)", hovermode="x unified", height=500, legend={"orientation": "h", "y": 1.12, "x": .02})
-            st.plotly_chart(fig_price, use_container_width=True)
+            st.plotly_chart(fig_price, width="stretch")
 
             fig_rsi = go.Figure()
             fig_rsi.add_trace(go.Scatter(x=hist["Fecha"], y=hist["RSI"], name="RSI", mode="lines", line={"color": BLUE, "width": 2.5, "shape": "spline"}, fill="tozeroy", fillcolor="rgba(86,184,245,.08)", hovertemplate="<b>%{x|%d %b}</b><br>RSI: %{y:.1f}<extra></extra>"))
@@ -312,7 +334,7 @@ with technical_tab:
             fig_rsi.add_hline(y=30, line_dash="dash", line_color=GREEN, annotation_text="Sobreventa · 30", annotation_position="bottom right")
             style_chart(fig_rsi)
             fig_rsi.update_layout(title="Índice de fuerza relativa (RSI)", yaxis={"range": [0, 100], "title": "RSI"}, height=300, showlegend=False)
-            st.plotly_chart(fig_rsi, use_container_width=True)
+            st.plotly_chart(fig_rsi, width="stretch")
             st.caption("Las medias móviles del inicio del período usan los datos disponibles hasta completar su ventana.")
 
 with compare_tab:
@@ -354,7 +376,7 @@ with compare_tab:
                     fig.add_hline(y=100, line_dash="dot", line_color="rgba(147,175,194,.55)", annotation_text="Punto de partida")
                     style_chart(fig)
                     fig.update_layout(title=f"Rendimiento relativo · últimos {compare_days} días", yaxis_title="Índice (base 100)", hovermode="x unified", height=460)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
 
 # Floating bot launcher. The compact round button stays on-screen while scrolling.
 if "ai_panel_open" not in st.session_state:
@@ -384,7 +406,7 @@ if st.session_state.ai_panel_open:
 
         with st.form("floating_ai_chat_form", clear_on_submit=True):
             prompt = st.text_input("Mensaje", placeholder="Ej.: ¿qué pasó con Bitcoin?", label_visibility="collapsed")
-            send = st.form_submit_button("Enviar  ➤", use_container_width=True)
+            send = st.form_submit_button("Enviar  ➤", width="stretch")
 
         if send and prompt.strip():
             st.session_state.market_chat.append({"role": "user", "content": prompt.strip()})
@@ -403,6 +425,6 @@ if st.session_state.ai_panel_open:
             st.rerun()
 else:
     with st.container(key="ai_fab"):
-        if st.button("🤖", key="ai_fab_button", help="Abrir asistente de IA", use_container_width=True):
+        if st.button("🤖", key="ai_fab_button", help="Abrir asistente de IA", width="stretch"):
             st.session_state.ai_panel_open = True
             st.rerun()
