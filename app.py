@@ -1,5 +1,4 @@
 import os
-import time
 from datetime import datetime
 from typing import Optional
 
@@ -74,74 +73,42 @@ def get_gemini_client() -> Optional[genai.Client]:
     if not key or not str(key).strip():
         return None
 
+    # Timeout estricto de 3500 ms (3.5 s) para que nunca se quede colgado minutos
     return genai.Client(
         api_key=str(key).strip(),
-        http_options={"api_version": "v1beta"},
+        http_options=types.HttpOptions(api_version="v1beta", timeout=3500),
     )
 
 
 def ask_gemini(prompt: str, instruction: Optional[str] = None) -> str:
     client = get_gemini_client()
     if client is None:
-        return "⚠️ No encuentro `GEMINI_API_KEY` en Streamlit Secrets ni en `.env`. Revisa la configuración."
+        return "⚠️ No encuentro `GEMINI_API_KEY` en Streamlit Secrets ni en `.env`."
 
-    # Configuración rápida sin pensamiento extendido y con margen amplio para no cortar frases
-    config_no_think = types.GenerateContentConfig(
+    config = types.GenerateContentConfig(
         system_instruction=instruction,
-        temperature=0.4,
-        max_output_tokens=1200,
+        temperature=0.3,
+        max_output_tokens=600,
         thinking_config=types.ThinkingConfig(thinking_budget=0),
     )
-    config_default = types.GenerateContentConfig(
-        system_instruction=instruction,
-        temperature=0.4,
-        max_output_tokens=1200,
-    )
 
-    attempts = [
-        ("gemini-flash-latest", config_no_think, 0.4),
-        ("gemini-flash-latest", config_no_think, 0.8),
-        ("gemini-2.5-flash", config_no_think, 0.4),
-        ("gemini-3-flash-preview", config_default, 0.4),
-    ]
-    last_error = ""
-
-    for model_name, cfg, wait_sec in attempts:
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=cfg,
-            )
-            text = getattr(response, "text", None)
-            if text and text.strip():
-                return text.strip()
-        except Exception as exc:
-            last_error = str(exc)
-            # Si el modelo no soporta thinking_budget=0, reintenta sin thinking_config
-            if "thinking" in last_error.lower() or "400" in last_error:
-                try:
-                    response = client.models.generate_content(
-                        model=model_name,
-                        contents=prompt,
-                        config=config_default,
-                    )
-                    text = getattr(response, "text", None)
-                    if text and text.strip():
-                        return text.strip()
-                except Exception as exc2:
-                    last_error = str(exc2)
-
-            if "503" in last_error or "UNAVAILABLE" in last_error:
-                time.sleep(wait_sec)
-                continue
-            if "429" in last_error or "RESOURCE_EXHAUSTED" in last_error:
-                return "⏳ Límite temporal alcanzado (429). Espera 10 segundos y vuelve a preguntar."
-            if "404" in last_error or "not found" in last_error.lower():
-                continue
-            return f"❌ Error: `{last_error}`"
-
-    return f"⏳ Los servidores de IA están ocupados en este momento. Intenta de nuevo en unos segundos. (`{last_error[:80]}`)"
+    try:
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=prompt,
+            config=config,
+        )
+        text = getattr(response, "text", None)
+        if text and text.strip():
+            return text.strip()
+        return "No recibí respuesta del modelo. Intenta reformular tu pregunta."
+    except Exception as exc:
+        err = str(exc)
+        if "timeout" in err.lower() or "timed out" in err.lower() or "503" in err or "UNAVAILABLE" in err:
+            return "⚡ El servidor de IA tardó más de 3 segundos en responder por alta demanda. Intenta enviar de nuevo."
+        if "429" in err or "RESOURCE_EXHAUSTED" in err:
+            return "⏳ Límite de velocidad alcanzado. Espera 10 segundos y vuelve a preguntar."
+        return f"❌ Error: `{err[:120]}`"
 
 
 # Visual styling, including a fixed, responsive chatbot launcher and panel.
@@ -183,7 +150,7 @@ st.markdown(
       .stButton > button {{ border-radius:12px; border:1px solid rgba(85,230,208,.28); background:linear-gradient(135deg,rgba(85,230,208,.16),rgba(86,184,245,.12)); color:{TEXT}; font-weight:700; transition:all .18s ease; }}
       .stButton > button:hover {{ border-color:{TEAL}; color:{TEAL}; transform:translateY(-1px); }}
 
-      /* Floating AI bot button: fixed to the viewport, with a gentle idle motion. */
+      /* Floating AI bot button */
       .st-key-ai_fab {{ position:fixed !important; right:26px !important; bottom:24px !important; z-index:10001 !important; width:74px !important; height:74px !important; }}
       .st-key-ai_fab [data-testid="stButton"] {{ width:74px !important; height:74px !important; }}
       .st-key-ai_fab button {{ width:68px !important; height:68px !important; min-height:68px !important; padding:0 !important; border-radius:50% !important; border:2px solid rgba(85,230,208,.9) !important; background:radial-gradient(circle at 30% 25%,#244e66,#102a3d 72%) !important; color:#eaffff !important; font-size:31px !important; box-shadow:0 0 0 6px rgba(85,230,208,.09),0 12px 35px rgba(0,0,0,.42),0 0 26px rgba(85,230,208,.24) !important; animation:bot-float 3.2s ease-in-out infinite; }}
@@ -193,7 +160,7 @@ st.markdown(
       .st-key-ai_fab button:after {{ content:""; position:absolute; width:10px;height:10px;border-radius:50%;right:3px;top:3px;background:#4DDBA5;border:2px solid #0D2131; }}
       @keyframes bot-float {{ 0%,100% {{ transform:translateY(0); }} 50% {{ transform:translateY(-5px); }} }}
 
-      /* Chat panel floats above the bot and remains usable on smaller screens. */
+      /* Chat panel */
       .st-key-ai_panel {{ position:fixed !important; right:27px !important; bottom:108px !important; z-index:10000 !important; width:min(390px,calc(100vw - 32px)) !important; max-width:390px !important; background:linear-gradient(155deg,#102a3d,#091b29) !important; border:1px solid rgba(85,230,208,.32) !important; border-radius:22px !important; padding:15px 16px 12px !important; box-shadow:0 24px 70px rgba(0,0,0,.56),0 0 32px rgba(85,230,208,.10) !important; }}
       .st-key-ai_panel [data-testid="stVerticalBlock"] {{ gap:.45rem; }}
       .st-key-ai_panel [data-testid="stChatMessage"] {{ background:rgba(255,255,255,.035); border:1px solid rgba(147,175,194,.10); border-radius:14px; padding:.55rem .7rem; }}
@@ -414,43 +381,52 @@ with compare_tab:
                     fig.update_layout(title=f"Rendimiento relativo · últimos {compare_days} días", yaxis_title="Índice (base 100)", hovermode="x unified", height=460)
                     st.plotly_chart(fig, width="stretch")
 
-# Floating bot launcher. The compact round button stays on-screen while scrolling.
-if "ai_panel_open" not in st.session_state:
-    st.session_state.ai_panel_open = False
-if "market_chat" not in st.session_state:
-    st.session_state.market_chat = []
-if "pending_user_prompt" not in st.session_state:
-    st.session_state.pending_user_prompt = ""
 
-if st.session_state.ai_panel_open:
-    with st.container(key="ai_panel"):
-        title_col, close_col = st.columns([5, 1])
-        with title_col:
-            st.markdown("### 🤖 Nova · Asistente")
-            st.caption("Consulta datos y tendencias del mercado")
-        with close_col:
-            if st.button("×", key="ai_panel_close", help="Cerrar asistente"):
-                st.session_state.ai_panel_open = False
-                st.rerun()
+# Fragmento aislado: solo se ejecuta el chat sin recargar CoinGecko ni gráficos
+@st.fragment
+def render_floating_chat(market_df: pd.DataFrame):
+    if "ai_panel_open" not in st.session_state:
+        st.session_state.ai_panel_open = False
+    if "market_chat" not in st.session_state:
+        st.session_state.market_chat = []
 
-        # 1. Historial de mensajes arriba
-        messages_box = st.container(height=300, border=False)
-        with messages_box:
-            if not st.session_state.market_chat and not st.session_state.pending_user_prompt:
-                with st.chat_message("assistant", avatar="🤖"):
-                    st.markdown("¡Hola! Soy Nova. Pregúntame por los movimientos recientes o por un activo del listado.")
-            for message in st.session_state.market_chat[-12:]:
-                with st.chat_message(message["role"], avatar="🤖" if message["role"] == "assistant" else "🧑"):
-                    st.markdown(message["content"])
+    if st.session_state.ai_panel_open:
+        with st.container(key="ai_panel"):
+            title_col, close_col = st.columns([5, 1])
+            with title_col:
+                st.markdown("### 🤖 Nova · Asistente")
+                st.caption("Consulta datos y tendencias del mercado")
+            with close_col:
+                if st.button("×", key="ai_panel_close", help="Cerrar asistente"):
+                    st.session_state.ai_panel_open = False
+                    st.rerun(scope="fragment")
 
-            if st.session_state.pending_user_prompt:
-                user_prompt = st.session_state.pending_user_prompt
-                st.session_state.pending_user_prompt = ""
+            # 1. Historial de mensajes arriba
+            messages_box = st.container(height=300, border=False)
+            with messages_box:
+                if not st.session_state.market_chat:
+                    with st.chat_message("assistant", avatar="🤖"):
+                        st.markdown("¡Hola! Soy Nova. Pregúntame por los movimientos recientes o por un activo del listado.")
+                for message in st.session_state.market_chat[-12:]:
+                    with st.chat_message(message["role"], avatar="🤖" if message["role"] == "assistant" else "🧑"):
+                        st.markdown(message["content"])
 
-                top_df = market.head(15)
-                extra_df = market[
-                    market["name"].str.lower().apply(lambda n: n in user_prompt.lower())
-                    | market["symbol_upper"].str.lower().apply(lambda s: s in user_prompt.lower().split())
+                # Placeholder donde aparecerá el mensaje nuevo al enviar
+                live_slot = st.empty()
+
+            # 2. Caja de escritura abajo
+            with st.form("floating_ai_chat_form", clear_on_submit=True):
+                prompt = st.text_input("Mensaje", placeholder="Ej.: ¿qué pasó con Bitcoin?", label_visibility="collapsed")
+                send = st.form_submit_button("Enviar  ➤", width="stretch")
+
+            if send and prompt.strip():
+                user_prompt = prompt.strip()
+                st.session_state.market_chat.append({"role": "user", "content": user_prompt})
+
+                top_df = market_df.head(12)
+                extra_df = market_df[
+                    market_df["name"].str.lower().apply(lambda n: n in user_prompt.lower())
+                    | market_df["symbol_upper"].str.lower().apply(lambda s: s in user_prompt.lower().split())
                 ]
                 context_df = pd.concat([top_df, extra_df]).drop_duplicates(subset=["id"])
                 context = "; ".join(
@@ -458,29 +434,24 @@ if st.session_state.ai_panel_open:
                     for _, row in context_df.iterrows()
                 )
 
-                with st.chat_message("assistant", avatar="🤖"):
-                    with st.spinner("Nova está pensando..."):
-                        answer = ask_gemini(
-                            f"Mercado (últimas 24h): {context}\nPregunta: {user_prompt}",
-                            "Eres Nova, asistente de NovaCrypto. Responde en español de forma clara, completa y directa en un párrafo corto (3 a 4 frases). Si preguntan por datos históricos largos, sugiere revisar la pestaña 'Análisis técnico'. Cierra con una breve nota indicando que no es asesoría financiera.",
-                        )
-                    st.markdown(answer)
+                with live_slot.container():
+                    with st.chat_message("user", avatar="🧑"):
+                        st.markdown(user_prompt)
+                    with st.chat_message("assistant", avatar="🤖"):
+                        with st.spinner("Nova está pensando..."):
+                            answer = ask_gemini(
+                                f"Mercado (últimas 24h): {context}\nPregunta: {user_prompt}",
+                                "Eres Nova, asistente de NovaCrypto. Responde en español en 2 o 3 frases claras y completas. Si preguntan por historial largo, sugiere la pestaña 'Análisis técnico'. Recuerda brevemente que no es asesoría financiera.",
+                            )
+                        st.markdown(answer)
 
                 if answer:
                     st.session_state.market_chat.append({"role": "assistant", "content": answer})
+    else:
+        with st.container(key="ai_fab"):
+            if st.button("🤖", key="ai_fab_button", help="Abrir asistente de IA", width="stretch"):
+                st.session_state.ai_panel_open = True
+                st.rerun(scope="fragment")
 
-        # 2. Caja de entrada abajo
-        with st.form("floating_ai_chat_form", clear_on_submit=True):
-            prompt = st.text_input("Mensaje", placeholder="Ej.: ¿qué pasó con Bitcoin?", label_visibility="collapsed")
-            send = st.form_submit_button("Enviar  ➤", width="stretch")
 
-        if send and prompt.strip():
-            clean_prompt = prompt.strip()
-            st.session_state.market_chat.append({"role": "user", "content": clean_prompt})
-            st.session_state.pending_user_prompt = clean_prompt
-            st.rerun()
-else:
-    with st.container(key="ai_fab"):
-        if st.button("🤖", key="ai_fab_button", help="Abrir asistente de IA", width="stretch"):
-            st.session_state.ai_panel_open = True
-            st.rerun()
+render_floating_chat(market)
