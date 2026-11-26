@@ -73,10 +73,9 @@ def get_gemini_client() -> Optional[genai.Client]:
     if not key or not str(key).strip():
         return None
 
-    # Timeout estricto de 3500 ms (3.5 s) para que nunca se quede colgado minutos
     return genai.Client(
         api_key=str(key).strip(),
-        http_options=types.HttpOptions(api_version="v1beta", timeout=3500),
+        http_options=types.HttpOptions(api_version="v1beta", timeout=12000),
     )
 
 
