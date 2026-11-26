@@ -88,12 +88,6 @@ def build_gemini_config(instruction: Optional[str] = None) -> types.GenerateCont
     if instruction:
         config_kwargs["system_instruction"] = instruction
 
-    # Desactiva el razonamiento extendido para respuestas instantáneas en chat
-    try:
-        config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
-    except Exception:
-        pass
-
     return types.GenerateContentConfig(**config_kwargs)
 
 
@@ -104,41 +98,44 @@ def stream_gemini(prompt: str, instruction: Optional[str] = None):
         return
 
     config = build_gemini_config(instruction)
-    models_to_try = ["gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-2.0-flash"]
+    attempts = [
+        ("gemini-flash-latest", 0.5),
+        ("gemini-flash-latest", 1.0),
+        ("gemini-flash-latest", 1.5),
+        ("gemini-2.5-flash", 0.5),
+        ("gemini-3-flash-preview", 0.5),
+    ]
+    last_error = ""
 
-    for model_name in models_to_try:
-        for _ in range(2):
-            try:
-                response_stream = client.models.generate_content_stream(
-                    model=model_name,
-                    contents=prompt,
-                    config=config,
-                )
-                yielded_any = False
-                for chunk in response_stream:
-                    text = getattr(chunk, "text", None)
-                    if text:
-                        yielded_any = True
-                        yield text
-                if yielded_any:
-                    return
-            except Exception as exc:
-                err_msg = str(exc)
-                if "503" in err_msg or "UNAVAILABLE" in err_msg:
-                    time.sleep(0.8)
-                    continue
-                if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
-                    yield "⏳ Alcancé el límite temporal de consultas. Espera unos segundos y vuelve a intentar."
-                    return
-                if "403" in err_msg or "API_KEY_INVALID" in err_msg or "PERMISSION_DENIED" in err_msg:
-                    yield f"🔑 Error de permisos o API Key inválida: `{exc}`"
-                    return
-                if "404" in err_msg or "not found" in err_msg.lower():
-                    break
-                yield f"❌ Error al consultar Gemini: `{exc}`"
+    for model_name, wait_sec in attempts:
+        try:
+            response_stream = client.models.generate_content_stream(
+                model=model_name,
+                contents=prompt,
+                config=config,
+            )
+            yielded_any = False
+            for chunk in response_stream:
+                text = getattr(chunk, "text", None)
+                if text:
+                    yielded_any = True
+                    yield text
+            if yielded_any:
                 return
+        except Exception as exc:
+            last_error = str(exc)
+            if "503" in last_error or "UNAVAILABLE" in last_error:
+                time.sleep(wait_sec)
+                continue
+            if "429" in last_error or "RESOURCE_EXHAUSTED" in last_error:
+                yield "⏳ Límite de velocidad alcanzado (429). Espera 10 segundos y vuelve a preguntar."
+                return
+            if "404" in last_error or "not found" in last_error.lower():
+                continue
+            yield f"❌ Error: `{last_error}`"
+            return
 
-    yield "⏳ Los servidores de IA están saturados en este momento. Intenta enviar tu pregunta nuevamente en unos segundos."
+    yield f"⏳ Servidores ocupados tras varios intentos. Intenta de nuevo en unos segundos. (`{last_error[:80]}`)"
 
 
 # Visual styling, including a fixed, responsive chatbot launcher and panel.
@@ -416,6 +413,8 @@ if "ai_panel_open" not in st.session_state:
     st.session_state.ai_panel_open = False
 if "market_chat" not in st.session_state:
     st.session_state.market_chat = []
+if "pending_user_prompt" not in st.session_state:
+    st.session_state.pending_user_prompt = ""
 
 if st.session_state.ai_panel_open:
     with st.container(key="ai_panel"):
@@ -428,25 +427,21 @@ if st.session_state.ai_panel_open:
                 st.session_state.ai_panel_open = False
                 st.rerun()
 
-        with st.form("floating_ai_chat_form", clear_on_submit=True):
-            prompt = st.text_input("Mensaje", placeholder="Ej.: ¿qué pasó con Bitcoin?", label_visibility="collapsed")
-            send = st.form_submit_button("Enviar  ➤", width="stretch")
-
-        user_prompt = prompt.strip() if send and prompt.strip() else ""
-        if user_prompt:
-            st.session_state.market_chat.append({"role": "user", "content": user_prompt})
-
+        # 1. Historial de mensajes arriba
         messages_box = st.container(height=300, border=False)
         with messages_box:
-            if not st.session_state.market_chat:
+            if not st.session_state.market_chat and not st.session_state.pending_user_prompt:
                 with st.chat_message("assistant", avatar="🤖"):
                     st.markdown("¡Hola! Soy Nova. Pregúntame por los movimientos recientes o por un activo del listado.")
             for message in st.session_state.market_chat[-12:]:
                 with st.chat_message(message["role"], avatar="🤖" if message["role"] == "assistant" else "🧑"):
                     st.markdown(message["content"])
 
-            if user_prompt:
-                # Contexto compacto (top 15 + moneda consultada si está fuera del top 15) para minimizar latencia
+            # Si hay un mensaje recién enviado, se procesa aquí con indicador de "pensando"
+            if st.session_state.pending_user_prompt:
+                user_prompt = st.session_state.pending_user_prompt
+                st.session_state.pending_user_prompt = ""
+
                 top_df = market.head(15)
                 extra_df = market[
                     market["name"].str.lower().apply(lambda n: n in user_prompt.lower())
@@ -457,15 +452,41 @@ if st.session_state.ai_panel_open:
                     f"{row['name']} ({row['symbol_upper']}): ${row['current_price']:,.4g} ({row['price_change_percentage_24h']:+.2f}%)"
                     for _, row in context_df.iterrows()
                 )
+
                 with st.chat_message("assistant", avatar="🤖"):
-                    answer = st.write_stream(
-                        stream_gemini(
-                            f"Mercado: {context}\nPregunta: {user_prompt}",
-                            "Eres Nova, asistente de NovaCrypto. Responde en español de forma breve, clara y directa (máximo 3-4 frases). Recuerda brevemente que no es asesoría financiera.",
-                        )
+                    thinking_placeholder = st.empty()
+                    thinking_placeholder.markdown("⏳ *Nova está pensando...*")
+
+                    stream_gen = stream_gemini(
+                        f"Mercado (últimas 24h): {context}\nPregunta: {user_prompt}",
+                        "Eres Nova, asistente de NovaCrypto. Responde en español de forma breve, clara y directa (máximo 3-4 frases). Si preguntan por datos históricos largos, sugiere revisar la pestaña 'Análisis técnico'. Recuerda brevemente que no es asesoría financiera.",
                     )
+
+                    # Espera el primer fragmento mientras muestra "Nova está pensando..."
+                    first_chunk = next(stream_gen, "")
+                    thinking_placeholder.empty()
+
+                    def combined_stream():
+                        if first_chunk:
+                            yield first_chunk
+                        for chunk in stream_gen:
+                            yield chunk
+
+                    answer = st.write_stream(combined_stream())
+
                 if answer:
                     st.session_state.market_chat.append({"role": "assistant", "content": answer})
+
+        # 2. Caja de entrada abajo
+        with st.form("floating_ai_chat_form", clear_on_submit=True):
+            prompt = st.text_input("Mensaje", placeholder="Ej.: ¿qué pasó con Bitcoin?", label_visibility="collapsed")
+            send = st.form_submit_button("Enviar  ➤", width="stretch")
+
+        if send and prompt.strip():
+            clean_prompt = prompt.strip()
+            st.session_state.market_chat.append({"role": "user", "content": clean_prompt})
+            st.session_state.pending_user_prompt = clean_prompt
+            st.rerun()
 else:
     with st.container(key="ai_fab"):
         if st.button("🤖", key="ai_fab_button", help="Abrir asistente de IA", width="stretch"):
