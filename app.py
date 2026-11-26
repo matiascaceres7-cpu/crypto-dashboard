@@ -75,7 +75,7 @@ def get_gemini_client() -> Optional[genai.Client]:
 
     return genai.Client(
         api_key=str(key).strip(),
-        http_options=types.HttpOptions(api_version="v1beta", timeout=12000),
+        http_options=types.HttpOptions(api_version="v1beta", timeout=15000),
     )
 
 
@@ -84,30 +84,47 @@ def ask_gemini(prompt: str, instruction: Optional[str] = None) -> str:
     if client is None:
         return "⚠️ No encuentro `GEMINI_API_KEY` en Streamlit Secrets ni en `.env`."
 
-    config = types.GenerateContentConfig(
+    config_fast = types.GenerateContentConfig(
         system_instruction=instruction,
         temperature=0.3,
         max_output_tokens=600,
         thinking_config=types.ThinkingConfig(thinking_budget=0),
     )
+    config_std = types.GenerateContentConfig(
+        system_instruction=instruction,
+        temperature=0.3,
+        max_output_tokens=600,
+    )
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-flash-latest",
-            contents=prompt,
-            config=config,
-        )
-        text = getattr(response, "text", None)
-        if text and text.strip():
-            return text.strip()
-        return "No recibí respuesta del modelo. Intenta reformular tu pregunta."
-    except Exception as exc:
-        err = str(exc)
-        if "timeout" in err.lower() or "timed out" in err.lower() or "503" in err or "UNAVAILABLE" in err:
-            return "⚡ El servidor de IA tardó más de 3 segundos en responder por alta demanda. Intenta enviar de nuevo."
-        if "429" in err or "RESOURCE_EXHAUSTED" in err:
-            return "⏳ Límite de velocidad alcanzado. Espera 10 segundos y vuelve a preguntar."
-        return f"❌ Error: `{err[:120]}`"
+    # Salta al instante de un modelo a otro si hay saturación (503) o no existe (404)
+    models = [
+        ("gemini-flash-latest", config_fast),
+        ("gemini-2.5-flash", config_fast),
+        ("gemini-2.5-flash-lite", config_std),
+        ("gemini-3-flash-preview", config_std),
+        ("gemini-2.0-flash", config_std),
+    ]
+    last_error = ""
+
+    for model_name, cfg in models:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=cfg,
+            )
+            text = getattr(response, "text", None)
+            if text and text.strip():
+                return text.strip()
+        except Exception as exc:
+            last_error = str(exc)
+            if "503" in last_error or "UNAVAILABLE" in last_error or "404" in last_error or "not found" in last_error.lower():
+                continue  # Pasa al siguiente modelo sin esperas
+            if "429" in last_error or "RESOURCE_EXHAUSTED" in last_error:
+                return "⏳ Límite temporal de consultas alcanzado (429). Espera unos segundos y vuelve a intentar."
+            return f"❌ Error: `{last_error[:140]}`"
+
+    return f"⚡ Todos los modelos están con alta demanda ahora mismo. Intenta en unos segundos. (`{last_error[:90]}`)"
 
 
 # Visual styling, including a fixed, responsive chatbot launcher and panel.
@@ -410,7 +427,6 @@ def render_floating_chat(market_df: pd.DataFrame):
                     with st.chat_message(message["role"], avatar="🤖" if message["role"] == "assistant" else "🧑"):
                         st.markdown(message["content"])
 
-                # Placeholder donde aparecerá el mensaje nuevo al enviar
                 live_slot = st.empty()
 
             # 2. Caja de escritura abajo
