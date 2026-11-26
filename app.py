@@ -81,32 +81,21 @@ def ask_gemini(prompt: str, instruction: Optional[str] = None) -> str:
         return "⚠️ No encuentro `GEMINI_API_KEY` en Streamlit Secrets ni en `.env`. Revisa la configuración."
 
     config = types.GenerateContentConfig(system_instruction=instruction) if instruction else None
-    models_to_try = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"]
-    last_error = None
 
-    for model_name in models_to_try:
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=config,
-            )
-            if getattr(response, "text", None):
-                return response.text
-        except Exception as exc:
-            last_error = exc
-            err_msg = str(exc)
-            if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
-                return "⏳ Alcancé el límite temporal de consultas. Espera un momento y vuelve a intentar."
-            if "403" in err_msg or "API_KEY_INVALID" in err_msg or "PERMISSION_DENIED" in err_msg:
-                return f"🔑 Error de permisos o API Key inválida: `{exc}`"
-            # Si el error es 404 (modelo no encontrado), prueba el siguiente modelo de la lista
-            if "404" in err_msg or "not found" in err_msg.lower():
-                continue
-            return f"❌ Error al consultar Gemini: `{exc}`"
-
-    return f"❌ Ningún modelo respondió. Último error: `{last_error}`"
-
+    try:
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=prompt,
+            config=config,
+        )
+        return getattr(response, "text", None) or "No recibí texto de respuesta. Inténtalo otra vez."
+    except Exception as exc:
+        err_msg = str(exc)
+        if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+            return "⏳ Alcancé el límite temporal de consultas. Espera un momento y vuelve a intentar."
+        if "403" in err_msg or "API_KEY_INVALID" in err_msg or "PERMISSION_DENIED" in err_msg:
+            return f"🔑 Error de permisos o API Key inválida: `{exc}`"
+        return f"❌ Error al consultar Gemini: `{exc}`"
 
 # Visual styling, including a fixed, responsive chatbot launcher and panel.
 st.markdown(
