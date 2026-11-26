@@ -79,54 +79,89 @@ def get_gemini_client() -> Optional[genai.Client]:
     )
 
 
-def build_local_market_fallback(user_prompt: str, market_df: pd.DataFrame) -> str:
-    """Respuesta instantánea con datos reales de CoinGecko si la API de Gemini está saturada."""
+def answer_from_market_data(user_prompt: str, market_df: pd.DataFrame) -> str:
+    """Analizador local exacto sobre los datos reales de CoinGecko cuando Gemini no responde."""
     q = user_prompt.lower()
-    if any(word in q for word in ("hola", "buenas", "hey", "saludos")):
-        btc = market_df[market_df["symbol_upper"] == "BTC"]
+    valid_prices = market_df.dropna(subset=["current_price"]).copy()
+    valid_change = market_df.dropna(subset=["price_change_percentage_24h"]).copy()
+
+    # 1. Saludos
+    if any(w in q for w in ("hola", "buenas", "hey", "saludos")) and len(q.split()) <= 4:
+        btc = valid_prices[valid_prices["symbol_upper"] == "BTC"]
         btc_txt = ""
         if not btc.empty:
             r = btc.iloc[0]
-            btc_txt = f" Ahora mismo Bitcoin cotiza en **${r['current_price']:,.2f}** ({r['price_change_percentage_24h']:+.2f}% en 24 h)."
-        return f"¡Hola! Soy Nova.{btc_txt} Pregúntame por cualquier criptomoneda del listado o por las tendencias del día."
+            btc_txt = f" Bitcoin está en **${r['current_price']:,.2f}** ({r['price_change_percentage_24h']:+.2f}% en 24 h)."
+        return f"¡Hola! Soy Nova.{btc_txt} Puedes preguntarme por precios, alzas, caídas o cualquier activo del listado."
 
-    matched = market_df[
-        market_df["name"].str.lower().apply(lambda n: n in q)
-        | market_df["symbol_upper"].str.lower().apply(lambda s: s in q.split())
+    # 2. Más barata / menor precio
+    if any(w in q for w in ("barat", "menor precio", "más baj", "mas baj", "económica", "economica")):
+        if not valid_prices.empty:
+            cheapest = valid_prices.sort_values("current_price", ascending=True).head(3)
+            items = ", ".join(
+                f"**{r['name']} ({r['symbol_upper']})** a **${r['current_price']:.6f}**"
+                for _, r in cheapest.iterrows()
+            )
+            return f"Las criptomonedas con menor precio unitario en el listado actual son: {items}. *(Recuerda que un precio bajo por unidad no implica menor valor total; revisa también la capitalización).* "
+
+    # 3. Más cara / mayor precio
+    if any(w in q for w in ("cara", "caro", "mayor precio", "más alt", "mas alt", "costos")):
+        if not valid_prices.empty:
+            priciest = valid_prices.sort_values("current_price", ascending=False).head(3)
+            items = ", ".join(
+                f"**{r['name']} ({r['symbol_upper']})** a **${r['current_price']:,.2f}**"
+                for _, r in priciest.iterrows()
+            )
+            return f"Los activos con mayor precio unitario en el listado son: {items}. *(Fotografía de mercado, no es asesoría financiera).* "
+
+    # 4. Mayor capitalización / más grande
+    if any(w in q for w in ("capitalización", "capitalizacion", "market cap", "más grande", "mas grande", "top")):
+        top_cap = valid_prices.dropna(subset=["market_cap"]).sort_values("market_cap", ascending=False).head(3)
+        if not top_cap.empty:
+            items = ", ".join(
+                f"**{r['name']} ({r['symbol_upper']})** (${r['market_cap']:,.0f})"
+                for _, r in top_cap.iterrows()
+            )
+            return f"Los activos con mayor capitalización de mercado son: {items}. *(Dato informativo, no es asesoría financiera).* "
+
+    # 5. Búsqueda de moneda específica por nombre o ticker
+    matched = valid_prices[
+        valid_prices["name"].str.lower().apply(lambda n: n in q)
+        | valid_prices["symbol_upper"].str.lower().apply(lambda s: s in [w.strip("¿?.,!") for w in q.split()])
     ]
     if not matched.empty:
         r = matched.iloc[0]
         return (
-            f"**{r['name']} ({r['symbol_upper']})** cotiza actualmente en **${r['current_price']:,.4g} USD**, "
-            f"con una variación de **{r['price_change_percentage_24h']:+.2f}%** en las últimas 24 horas. "
-            f"Para ver medias móviles y RSI, revisa la pestaña **Análisis técnico**. *(Dato informativo, no es asesoría financiera).*"
+            f"**{r['name']} ({r['symbol_upper']})** cotiza en **${r['current_price']:,.4g} USD**, "
+            f"con una variación de **{r['price_change_percentage_24h']:+.2f}%** en las últimas 24 h "
+            f"y capitalización de **${r['market_cap']:,.0f}**. Para ver medias móviles y RSI, revisa **Análisis técnico**. "
+            f"*(No constituye asesoría financiera).* "
         )
 
-    valid = market_df.dropna(subset=["price_change_percentage_24h"])
-    if not valid.empty:
-        best = valid.loc[valid["price_change_percentage_24h"].idxmax()]
-        worst = valid.loc[valid["price_change_percentage_24h"].idxmin()]
+    # 6. Mayor alza / caída / resumen general
+    if not valid_change.empty:
+        best = valid_change.loc[valid_change["price_change_percentage_24h"].idxmax()]
+        worst = valid_change.loc[valid_change["price_change_percentage_24h"].idxmin()]
         return (
-            f"En las últimas 24 h, el mayor impulso lo lidera **{best['name']} ({best['price_change_percentage_24h']:+.2f}%)** "
-            f"y el mayor retroceso es de **{worst['name']} ({worst['price_change_percentage_24h']:+.2f}%)**. "
-            f"*(Fotografía de mercado, no constituye asesoría financiera).*"
+            f"En las últimas 24 h, la mayor subida del listado es **{best['name']} ({best['price_change_percentage_24h']:+.2f}%)** "
+            f"y la mayor caída es **{worst['name']} ({worst['price_change_percentage_24h']:+.2f}%)**. "
+            f"Si quieres consultar un activo específico, dime su nombre o ticker. *(No es asesoría financiera).* "
         )
-    return "⏳ Los servidores de IA están saturados en este momento. Intenta enviar tu consulta nuevamente en unos segundos."
+
+    return "No tengo datos suficientes en este momento para responder esa consulta."
 
 
 def ask_gemini(prompt: str, instruction: Optional[str] = None, fallback_text: Optional[str] = None) -> str:
     client = get_gemini_client()
     if client is None:
-        return "⚠️ No encuentro `GEMINI_API_KEY` en Streamlit Secrets ni en `.env`."
+        return fallback_text or "⚠️ No encuentro `GEMINI_API_KEY` en Streamlit Secrets ni en `.env`."
 
-    config_fast = types.GenerateContentConfig(
+    config_std = types.GenerateContentConfig(
         system_instruction=instruction,
         temperature=0.3,
         max_output_tokens=600,
-        thinking_config=types.ThinkingConfig(thinking_budget=0),
     )
 
-    # Solo los modelos activos en tu clave; ante 429/503/504 pasa al siguiente o usa el respaldo instantáneo
     models = ["gemini-flash-latest", "gemini-2.5-flash"]
 
     for model_name in models:
@@ -134,7 +169,7 @@ def ask_gemini(prompt: str, instruction: Optional[str] = None, fallback_text: Op
             response = client.models.generate_content(
                 model=model_name,
                 contents=prompt,
-                config=config_fast,
+                config=config_std,
             )
             text = getattr(response, "text", None)
             if text and text.strip():
@@ -143,11 +178,9 @@ def ask_gemini(prompt: str, instruction: Optional[str] = None, fallback_text: Op
             err_upper = str(exc).upper()
             if any(code in err_upper for code in ("429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE", "504", "DEADLINE_EXCEEDED", "TIMEOUT", "404", "NOT_FOUND")):
                 continue
-            return f"❌ Error: `{str(exc)[:140]}`"
+            return f"❌ Error API: `{str(exc)[:120]}`"
 
-    if fallback_text:
-        return fallback_text
-    return "⏳ Los servidores de IA están saturados en este momento. Intenta enviar tu mensaje nuevamente en unos segundos."
+    return fallback_text or "⏳ Los servidores de IA están saturados en este momento. Intenta en unos segundos."
 
 
 # Visual styling, including a fixed, responsive chatbot launcher and panel.
@@ -461,17 +494,19 @@ def render_floating_chat(market_df: pd.DataFrame):
                 user_prompt = prompt.strip()
                 st.session_state.market_chat.append({"role": "user", "content": user_prompt})
 
-                top_df = market_df.head(12)
+                # Incluye top 10, las 5 más baratas y cualquier activo mencionado para que Gemini tenga toda la info
+                top_df = market_df.head(10)
+                cheap_df = market_df.nsmallest(5, "current_price")
                 extra_df = market_df[
                     market_df["name"].str.lower().apply(lambda n: n in user_prompt.lower())
                     | market_df["symbol_upper"].str.lower().apply(lambda s: s in user_prompt.lower().split())
                 ]
-                context_df = pd.concat([top_df, extra_df]).drop_duplicates(subset=["id"])
+                context_df = pd.concat([top_df, cheap_df, extra_df]).drop_duplicates(subset=["id"])
                 context = "; ".join(
-                    f"{row['name']} ({row['symbol_upper']}): ${row['current_price']:,.4g} ({row['price_change_percentage_24h']:+.2f}%)"
+                    f"{row['name']} ({row['symbol_upper']}): ${row['current_price']:,.6g} ({row['price_change_percentage_24h']:+.2f}%)"
                     for _, row in context_df.iterrows()
                 )
-                fallback = build_local_market_fallback(user_prompt, market_df)
+                fallback = answer_from_market_data(user_prompt, market_df)
 
                 with live_slot.container():
                     with st.chat_message("user", avatar="🧑"):
@@ -480,7 +515,7 @@ def render_floating_chat(market_df: pd.DataFrame):
                         with st.spinner("Nova está pensando..."):
                             answer = ask_gemini(
                                 f"Mercado (últimas 24h): {context}\nPregunta: {user_prompt}",
-                                "Eres Nova, asistente de NovaCrypto. Responde en español en 2 o 3 frases claras y completas. Si preguntan por historial largo, sugiere la pestaña 'Análisis técnico'. Recuerda brevemente que no es asesoría financiera.",
+                                "Eres Nova, asistente de NovaCrypto. Responde en español en 2 o 3 frases claras y directas usando los datos entregados. Recuerda brevemente que no es asesoría financiera.",
                                 fallback_text=fallback,
                             )
                         st.markdown(answer)
