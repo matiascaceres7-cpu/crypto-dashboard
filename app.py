@@ -80,62 +80,68 @@ def get_gemini_client() -> Optional[genai.Client]:
     )
 
 
-def build_gemini_config(instruction: Optional[str] = None) -> types.GenerateContentConfig:
-    config_kwargs = {
-        "temperature": 0.4,
-        "max_output_tokens": 350,
-    }
-    if instruction:
-        config_kwargs["system_instruction"] = instruction
-
-    return types.GenerateContentConfig(**config_kwargs)
-
-
-def stream_gemini(prompt: str, instruction: Optional[str] = None):
+def ask_gemini(prompt: str, instruction: Optional[str] = None) -> str:
     client = get_gemini_client()
     if client is None:
-        yield "⚠️ No encuentro `GEMINI_API_KEY` en Streamlit Secrets ni en `.env`. Revisa la configuración."
-        return
+        return "⚠️ No encuentro `GEMINI_API_KEY` en Streamlit Secrets ni en `.env`. Revisa la configuración."
 
-    config = build_gemini_config(instruction)
+    # Configuración rápida sin pensamiento extendido y con margen amplio para no cortar frases
+    config_no_think = types.GenerateContentConfig(
+        system_instruction=instruction,
+        temperature=0.4,
+        max_output_tokens=1200,
+        thinking_config=types.ThinkingConfig(thinking_budget=0),
+    )
+    config_default = types.GenerateContentConfig(
+        system_instruction=instruction,
+        temperature=0.4,
+        max_output_tokens=1200,
+    )
+
     attempts = [
-        ("gemini-flash-latest", 0.5),
-        ("gemini-flash-latest", 1.0),
-        ("gemini-flash-latest", 1.5),
-        ("gemini-2.5-flash", 0.5),
-        ("gemini-3-flash-preview", 0.5),
+        ("gemini-flash-latest", config_no_think, 0.4),
+        ("gemini-flash-latest", config_no_think, 0.8),
+        ("gemini-2.5-flash", config_no_think, 0.4),
+        ("gemini-3-flash-preview", config_default, 0.4),
     ]
     last_error = ""
 
-    for model_name, wait_sec in attempts:
+    for model_name, cfg, wait_sec in attempts:
         try:
-            response_stream = client.models.generate_content_stream(
+            response = client.models.generate_content(
                 model=model_name,
                 contents=prompt,
-                config=config,
+                config=cfg,
             )
-            yielded_any = False
-            for chunk in response_stream:
-                text = getattr(chunk, "text", None)
-                if text:
-                    yielded_any = True
-                    yield text
-            if yielded_any:
-                return
+            text = getattr(response, "text", None)
+            if text and text.strip():
+                return text.strip()
         except Exception as exc:
             last_error = str(exc)
+            # Si el modelo no soporta thinking_budget=0, reintenta sin thinking_config
+            if "thinking" in last_error.lower() or "400" in last_error:
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=config_default,
+                    )
+                    text = getattr(response, "text", None)
+                    if text and text.strip():
+                        return text.strip()
+                except Exception as exc2:
+                    last_error = str(exc2)
+
             if "503" in last_error or "UNAVAILABLE" in last_error:
                 time.sleep(wait_sec)
                 continue
             if "429" in last_error or "RESOURCE_EXHAUSTED" in last_error:
-                yield "⏳ Límite de velocidad alcanzado (429). Espera 10 segundos y vuelve a preguntar."
-                return
+                return "⏳ Límite temporal alcanzado (429). Espera 10 segundos y vuelve a preguntar."
             if "404" in last_error or "not found" in last_error.lower():
                 continue
-            yield f"❌ Error: `{last_error}`"
-            return
+            return f"❌ Error: `{last_error}`"
 
-    yield f"⏳ Servidores ocupados tras varios intentos. Intenta de nuevo en unos segundos. (`{last_error[:80]}`)"
+    return f"⏳ Los servidores de IA están ocupados en este momento. Intenta de nuevo en unos segundos. (`{last_error[:80]}`)"
 
 
 # Visual styling, including a fixed, responsive chatbot launcher and panel.
@@ -437,7 +443,6 @@ if st.session_state.ai_panel_open:
                 with st.chat_message(message["role"], avatar="🤖" if message["role"] == "assistant" else "🧑"):
                     st.markdown(message["content"])
 
-            # Si hay un mensaje recién enviado, se procesa aquí con indicador de "pensando"
             if st.session_state.pending_user_prompt:
                 user_prompt = st.session_state.pending_user_prompt
                 st.session_state.pending_user_prompt = ""
@@ -454,25 +459,12 @@ if st.session_state.ai_panel_open:
                 )
 
                 with st.chat_message("assistant", avatar="🤖"):
-                    thinking_placeholder = st.empty()
-                    thinking_placeholder.markdown("⏳ *Nova está pensando...*")
-
-                    stream_gen = stream_gemini(
-                        f"Mercado (últimas 24h): {context}\nPregunta: {user_prompt}",
-                        "Eres Nova, asistente de NovaCrypto. Responde en español de forma breve, clara y directa (máximo 3-4 frases). Si preguntan por datos históricos largos, sugiere revisar la pestaña 'Análisis técnico'. Recuerda brevemente que no es asesoría financiera.",
-                    )
-
-                    # Espera el primer fragmento mientras muestra "Nova está pensando..."
-                    first_chunk = next(stream_gen, "")
-                    thinking_placeholder.empty()
-
-                    def combined_stream():
-                        if first_chunk:
-                            yield first_chunk
-                        for chunk in stream_gen:
-                            yield chunk
-
-                    answer = st.write_stream(combined_stream())
+                    with st.spinner("Nova está pensando..."):
+                        answer = ask_gemini(
+                            f"Mercado (últimas 24h): {context}\nPregunta: {user_prompt}",
+                            "Eres Nova, asistente de NovaCrypto. Responde en español de forma clara, completa y directa en un párrafo corto (3 a 4 frases). Si preguntan por datos históricos largos, sugiere revisar la pestaña 'Análisis técnico'. Cierra con una breve nota indicando que no es asesoría financiera.",
+                        )
+                    st.markdown(answer)
 
                 if answer:
                     st.session_state.market_chat.append({"role": "assistant", "content": answer})
