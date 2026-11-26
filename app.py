@@ -72,7 +72,10 @@ def get_gemini_client() -> Optional[genai.Client]:
     if not key or not str(key).strip():
         return None
 
-    return genai.Client(api_key=str(key).strip())
+    return genai.Client(
+        api_key=str(key).strip(),
+        http_options={"api_version": "v1beta"},
+    )
 
 
 def ask_gemini(prompt: str, instruction: Optional[str] = None) -> str:
@@ -96,6 +99,7 @@ def ask_gemini(prompt: str, instruction: Optional[str] = None) -> str:
         if "403" in err_msg or "API_KEY_INVALID" in err_msg or "PERMISSION_DENIED" in err_msg:
             return f"🔑 Error de permisos o API Key inválida: `{exc}`"
         return f"❌ Error al consultar Gemini: `{exc}`"
+
 
 # Visual styling, including a fixed, responsive chatbot launcher and panel.
 st.markdown(
