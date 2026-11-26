@@ -79,7 +79,42 @@ def get_gemini_client() -> Optional[genai.Client]:
     )
 
 
-def ask_gemini(prompt: str, instruction: Optional[str] = None) -> str:
+def build_local_market_fallback(user_prompt: str, market_df: pd.DataFrame) -> str:
+    """Respuesta instantánea con datos reales de CoinGecko si la API de Gemini está saturada."""
+    q = user_prompt.lower()
+    if any(word in q for word in ("hola", "buenas", "hey", "saludos")):
+        btc = market_df[market_df["symbol_upper"] == "BTC"]
+        btc_txt = ""
+        if not btc.empty:
+            r = btc.iloc[0]
+            btc_txt = f" Ahora mismo Bitcoin cotiza en **${r['current_price']:,.2f}** ({r['price_change_percentage_24h']:+.2f}% en 24 h)."
+        return f"¡Hola! Soy Nova.{btc_txt} Pregúntame por cualquier criptomoneda del listado o por las tendencias del día."
+
+    matched = market_df[
+        market_df["name"].str.lower().apply(lambda n: n in q)
+        | market_df["symbol_upper"].str.lower().apply(lambda s: s in q.split())
+    ]
+    if not matched.empty:
+        r = matched.iloc[0]
+        return (
+            f"**{r['name']} ({r['symbol_upper']})** cotiza actualmente en **${r['current_price']:,.4g} USD**, "
+            f"con una variación de **{r['price_change_percentage_24h']:+.2f}%** en las últimas 24 horas. "
+            f"Para ver medias móviles y RSI, revisa la pestaña **Análisis técnico**. *(Dato informativo, no es asesoría financiera).*"
+        )
+
+    valid = market_df.dropna(subset=["price_change_percentage_24h"])
+    if not valid.empty:
+        best = valid.loc[valid["price_change_percentage_24h"].idxmax()]
+        worst = valid.loc[valid["price_change_percentage_24h"].idxmin()]
+        return (
+            f"En las últimas 24 h, el mayor impulso lo lidera **{best['name']} ({best['price_change_percentage_24h']:+.2f}%)** "
+            f"y el mayor retroceso es de **{worst['name']} ({worst['price_change_percentage_24h']:+.2f}%)**. "
+            f"*(Fotografía de mercado, no constituye asesoría financiera).*"
+        )
+    return "⏳ Los servidores de IA están saturados en este momento. Intenta enviar tu consulta nuevamente en unos segundos."
+
+
+def ask_gemini(prompt: str, instruction: Optional[str] = None, fallback_text: Optional[str] = None) -> str:
     client = get_gemini_client()
     if client is None:
         return "⚠️ No encuentro `GEMINI_API_KEY` en Streamlit Secrets ni en `.env`."
@@ -90,41 +125,29 @@ def ask_gemini(prompt: str, instruction: Optional[str] = None) -> str:
         max_output_tokens=600,
         thinking_config=types.ThinkingConfig(thinking_budget=0),
     )
-    config_std = types.GenerateContentConfig(
-        system_instruction=instruction,
-        temperature=0.3,
-        max_output_tokens=600,
-    )
 
-    # Prioriza modelos ligeros de baja latencia (<2s) y salta al instante ante 503/504/404
-    models = [
-        ("gemini-2.5-flash-lite", config_std),
-        ("gemini-2.0-flash", config_std),
-        ("gemini-flash-latest", config_fast),
-        ("gemini-2.5-flash", config_fast),
-    ]
-    last_error = ""
+    # Solo los modelos activos en tu clave; ante 429/503/504 pasa al siguiente o usa el respaldo instantáneo
+    models = ["gemini-flash-latest", "gemini-2.5-flash"]
 
-    for model_name, cfg in models:
+    for model_name in models:
         try:
             response = client.models.generate_content(
                 model=model_name,
                 contents=prompt,
-                config=cfg,
+                config=config_fast,
             )
             text = getattr(response, "text", None)
             if text and text.strip():
                 return text.strip()
         except Exception as exc:
-            last_error = str(exc)
-            err_upper = last_error.upper()
-            if any(code in err_upper for code in ("503", "UNAVAILABLE", "504", "DEADLINE_EXCEEDED", "TIMEOUT", "404", "NOT_FOUND")):
+            err_upper = str(exc).upper()
+            if any(code in err_upper for code in ("429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE", "504", "DEADLINE_EXCEEDED", "TIMEOUT", "404", "NOT_FOUND")):
                 continue
-            if "429" in err_upper or "RESOURCE_EXHAUSTED" in err_upper:
-                return "⏳ Límite temporal de consultas alcanzado. Espera unos segundos y vuelve a intentar."
-            return f"❌ Error: `{last_error[:140]}`"
+            return f"❌ Error: `{str(exc)[:140]}`"
 
-    return "⚡ Los servidores de IA están saturados en este momento. Intenta enviar tu mensaje nuevamente en unos segundos."
+    if fallback_text:
+        return fallback_text
+    return "⏳ Los servidores de IA están saturados en este momento. Intenta enviar tu mensaje nuevamente en unos segundos."
 
 
 # Visual styling, including a fixed, responsive chatbot launcher and panel.
@@ -448,6 +471,7 @@ def render_floating_chat(market_df: pd.DataFrame):
                     f"{row['name']} ({row['symbol_upper']}): ${row['current_price']:,.4g} ({row['price_change_percentage_24h']:+.2f}%)"
                     for _, row in context_df.iterrows()
                 )
+                fallback = build_local_market_fallback(user_prompt, market_df)
 
                 with live_slot.container():
                     with st.chat_message("user", avatar="🧑"):
@@ -457,6 +481,7 @@ def render_floating_chat(market_df: pd.DataFrame):
                             answer = ask_gemini(
                                 f"Mercado (últimas 24h): {context}\nPregunta: {user_prompt}",
                                 "Eres Nova, asistente de NovaCrypto. Responde en español en 2 o 3 frases claras y completas. Si preguntan por historial largo, sugiere la pestaña 'Análisis técnico'. Recuerda brevemente que no es asesoría financiera.",
+                                fallback_text=fallback,
                             )
                         st.markdown(answer)
 
