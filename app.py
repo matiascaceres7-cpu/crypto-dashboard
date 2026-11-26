@@ -75,7 +75,7 @@ def get_gemini_client() -> Optional[genai.Client]:
 
     return genai.Client(
         api_key=str(key).strip(),
-        http_options=types.HttpOptions(api_version="v1beta", timeout=15000),
+        http_options=types.HttpOptions(api_version="v1beta", timeout=12000),
     )
 
 
@@ -96,13 +96,12 @@ def ask_gemini(prompt: str, instruction: Optional[str] = None) -> str:
         max_output_tokens=600,
     )
 
-    # Salta al instante de un modelo a otro si hay saturación (503) o no existe (404)
+    # Prioriza modelos ligeros de baja latencia (<2s) y salta al instante ante 503/504/404
     models = [
+        ("gemini-2.5-flash-lite", config_std),
+        ("gemini-2.0-flash", config_std),
         ("gemini-flash-latest", config_fast),
         ("gemini-2.5-flash", config_fast),
-        ("gemini-2.5-flash-lite", config_std),
-        ("gemini-3-flash-preview", config_std),
-        ("gemini-2.0-flash", config_std),
     ]
     last_error = ""
 
@@ -118,13 +117,14 @@ def ask_gemini(prompt: str, instruction: Optional[str] = None) -> str:
                 return text.strip()
         except Exception as exc:
             last_error = str(exc)
-            if "503" in last_error or "UNAVAILABLE" in last_error or "404" in last_error or "not found" in last_error.lower():
-                continue  # Pasa al siguiente modelo sin esperas
-            if "429" in last_error or "RESOURCE_EXHAUSTED" in last_error:
-                return "⏳ Límite temporal de consultas alcanzado (429). Espera unos segundos y vuelve a intentar."
+            err_upper = last_error.upper()
+            if any(code in err_upper for code in ("503", "UNAVAILABLE", "504", "DEADLINE_EXCEEDED", "TIMEOUT", "404", "NOT_FOUND")):
+                continue
+            if "429" in err_upper or "RESOURCE_EXHAUSTED" in err_upper:
+                return "⏳ Límite temporal de consultas alcanzado. Espera unos segundos y vuelve a intentar."
             return f"❌ Error: `{last_error[:140]}`"
 
-    return f"⚡ Todos los modelos están con alta demanda ahora mismo. Intenta en unos segundos. (`{last_error[:90]}`)"
+    return "⚡ Los servidores de IA están saturados en este momento. Intenta enviar tu mensaje nuevamente en unos segundos."
 
 
 # Visual styling, including a fixed, responsive chatbot launcher and panel.
